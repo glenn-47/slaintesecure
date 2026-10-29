@@ -2,9 +2,18 @@
 
 {% block content %}
 <section class="card">
-  <h1>Secure healthcare records</h1>
-  <p>Sláinte Secure stores and shares patient records using cryptography to protect
-     their confidentiality, integrity and authenticity.</p>
-  <p><a class="button" href="{{ url_for('auth.register') }}">Create a patient account</a></p>
+  {% if current_user %}
+    <h1>Hello, {{ current_user['full_name'] }}</h1>
+    <p>You're logged in as a <strong>{{ current_user['role'] }}</strong>.</p>
+    <p class="muted">Your health records will appear here.</p>
+  {% else %}
+    <h1>Secure healthcare records</h1>
+    <p>Sláinte Secure stores and shares patient records using cryptography to protect
+       their confidentiality, integrity and authenticity.</p>
+    <p>
+      <a class="button" href="{{ url_for('auth.login') }}">Log in</a>
+      <a class="button button-secondary" href="{{ url_for('auth.register') }}">Create a patient account</a>
+    </p>
+  {% endif %}
 </section>
 {% endblock %}

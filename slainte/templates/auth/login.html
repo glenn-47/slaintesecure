@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Log in · Sláinte Secure{% endblock %}
+
+{% block content %}
+<section class="card">
+  <h1>Log in</h1>
+
+  <form method="post" class="form">
+    {# Hidden CSRF token: proves the form came from our own page. #}
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <label for="username">Username</label>
+    <input id="username" name="username" type="text" maxlength="30" required
+           autocomplete="username" autofocus value="{{ username }}">
+
+    <label for="password">Password</label>
+    <input id="password" name="password" type="password" maxlength="128"
+           autocomplete="current-password" required>
+
+    <button type="submit">Log in</button>
+  </form>
+
+  <p class="muted switch">No account yet? <a href="{{ url_for('auth.register') }}">Create a patient account</a></p>
+</section>
+{% endblock %}

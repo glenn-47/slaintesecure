@@ -30,6 +30,11 @@ def create_app():
         # SameSite=Lax stops the cookie being sent on most cross-site
         # requests, which helps protect against CSRF.
         SESSION_COOKIE_SAMESITE="Lax",
+        # Account lockout: after this many wrong passwords in a row, the
+        # account is locked for LOGIN_LOCKOUT_MINUTES. This stops attackers
+        # guessing passwords over and over (brute force).
+        LOGIN_MAX_ATTEMPTS=5,
+        LOGIN_LOCKOUT_MINUTES=15,
     )
 
     # Set up the SQLite database and create any missing tables.
@@ -40,7 +45,7 @@ def create_app():
     from . import csrf
     csrf.init_app(app)
 
-    # Accounts and access: registration, login, roles.
+    # Accounts and access: registration, login, logout, roles.
     from .auth import bp as auth_bp
     app.register_blueprint(auth_bp)
 
