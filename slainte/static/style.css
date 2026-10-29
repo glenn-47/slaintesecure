@@ -46,3 +46,84 @@ body {
 h1 { margin-top: 0; }
 
 .muted { color: var(--muted); }
+
+/* ---------- Navigation ---------- */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.topbar nav a {
+  color: #cfe7e5;
+  text-decoration: none;
+  margin-left: 18px;
+}
+
+.topbar nav a:hover { color: #fff; }
+
+/* ---------- Forms ---------- */
+
+.form label {
+  display: block;
+  font-weight: 600;
+  margin-top: 16px;
+}
+
+.form input {
+  width: 100%;
+  padding: 10px 12px;
+  margin-top: 6px;
+  border: 1px solid #c3d3d1;
+  border-radius: 6px;
+  font-size: 1rem;
+}
+
+.form input:focus {
+  outline: 2px solid var(--teal);
+  border-color: var(--teal);
+}
+
+.hint {
+  margin: 4px 0 0;
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+button,
+.button {
+  display: inline-block;
+  margin-top: 22px;
+  padding: 10px 20px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--teal);
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+button:hover,
+.button:hover { filter: brightness(1.1); }
+
+/* ---------- Flash messages ---------- */
+
+.flash {
+  padding: 12px 16px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+}
+
+.flash-error {
+  background: #fde8e4;
+  color: #8a2a14;
+}
+
+.flash-success {
+  background: #dff3ee;
+  color: #145c4a;
+}

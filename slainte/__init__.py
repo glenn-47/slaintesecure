@@ -36,6 +36,14 @@ def create_app():
     from . import db
     db.init_app(app)
 
+    # Reject any form submission that lacks a valid CSRF token.
+    from . import csrf
+    csrf.init_app(app)
+
+    # Accounts and access: registration, login, roles.
+    from .auth import bp as auth_bp
+    app.register_blueprint(auth_bp)
+
     @app.route("/")
     def home():
         return render_template("home.html")
