@@ -32,6 +32,10 @@ def create_app():
         SESSION_COOKIE_SAMESITE="Lax",
     )
 
+    # Set up the SQLite database and create any missing tables.
+    from . import db
+    db.init_app(app)
+
     @app.route("/")
     def home():
         return render_template("home.html")

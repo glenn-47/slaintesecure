@@ -1,0 +1,22 @@
+# Python environment
+.venv/
+venv/
+env/
+
+# Python cache files
+__pycache__/
+*.pyc
+
+# Local app data: the database and session secret key. Never commit these.
+instance/
+*.db
+*.sqlite3
+
+# Secrets / settings
+.env
+
+# Editors and OS clutter
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
