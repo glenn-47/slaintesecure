@@ -166,3 +166,23 @@ button:hover,
 
 /* Links inside page content use the app's teal. */
 .container a:not(.button) { color: var(--teal); }
+
+/* ---------- Tables ---------- */
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 8px;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: 10px 12px;
+  border-bottom: 1px solid #dde7e6;
+}
+
+.table th {
+  font-size: 0.9rem;
+  color: var(--muted);
+}

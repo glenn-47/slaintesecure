@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Patients · Sláinte Secure{% endblock %}
+
+{% block content %}
+<section class="card">
+  <h1>Patients</h1>
+
+  {% if patients %}
+    <table class="table">
+      <thead>
+        <tr><th>Name</th><th>Username</th><th>Joined</th></tr>
+      </thead>
+      <tbody>
+        {% for patient in patients %}
+          <tr>
+            <td>{{ patient['full_name'] }}</td>
+            <td>{{ patient['username'] }}</td>
+            <td>{{ patient['created_at'][:10] }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="muted">No patients have registered yet.</p>
+  {% endif %}
+</section>
+{% endblock %}

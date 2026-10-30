@@ -1,4 +1,4 @@
-"""Web pages for accounts: registration, login and logout."""
+"""Web pages for accounts: registration, login, logout and the patient list."""
 
 import re
 import sqlite3
@@ -8,8 +8,9 @@ from flask import current_app, flash, redirect, render_template, request, sessio
 
 from ..db import get_db
 from . import bp
+from .decorators import role_required
 from .passwords import hash_password, needs_rehash, password_problems, verify_password
-from .session import current_user
+from .session import current_user, start_session
 
 # 3-30 characters: letters, numbers, dots, underscores and hyphens only.
 USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9._-]{3,30}$")
@@ -97,8 +98,11 @@ def login():
     if current_user():
         return redirect(url_for("home"))
 
+    # Where to go after logging in, e.g. the page that asked them to log in.
+    next_page = request.values.get("next", "")
+
     if request.method == "GET":
-        return render_template("auth/login.html", username="")
+        return render_template("auth/login.html", username="", next_page=next_page)
 
     username = request.form.get("username", "").strip()
     password = request.form.get("password", "")
@@ -116,7 +120,7 @@ def login():
     if user is None:
         verify_password(_DUMMY_HASH, password)
         flash(generic_error, "error")
-        return render_template("auth/login.html", username=username), 401
+        return render_template("auth/login.html", username=username, next_page=next_page), 401
 
     now = datetime.now(timezone.utc)
 
@@ -133,7 +137,7 @@ def login():
                 f"{minutes_left} more minute(s).",
                 "error",
             )
-            return render_template("auth/login.html", username=username), 403
+            return render_template("auth/login.html", username=username, next_page=next_page), 403
 
     # --- Wrong password: count it, and lock the account if needed. ---
     if not verify_password(user["password_hash"], password):
@@ -160,7 +164,7 @@ def login():
             flash(generic_error, "error")
 
         db.commit()
-        return render_template("auth/login.html", username=username), 401
+        return render_template("auth/login.html", username=username, next_page=next_page), 401
 
     # --- Correct password: reset the counters and start the session. ---
     db.execute(
@@ -177,11 +181,27 @@ def login():
         )
     db.commit()
 
-    session.clear()
-    session["user_id"] = user["id"]
+    start_session(user["id"])
 
     flash(f"Welcome back, {user['username']}.", "success")
-    return redirect(url_for("home"))
+    return redirect(_safe_next_page(next_page))
+
+
+def _safe_next_page(next_page):
+    """
+    Return next_page if it's a page on THIS site, otherwise the home page.
+
+    Without this check, an attacker could send someone a link like
+    /auth/login?next=https://evil.example and, after a genuine login on our
+    site, the user would land on the attacker's fake copy of it. This is
+    called an "open redirect". We only accept paths starting with a single
+    "/". "//evil.example" would lead off-site, and so would "/\\evil.example"
+    because browsers treat a backslash like a forward slash, so both are
+    rejected.
+    """
+    if next_page.startswith("/") and not next_page.startswith("//") and "\\" not in next_page:
+        return next_page
+    return url_for("home")
 
 
 # ================================= Logout =================================
@@ -198,3 +218,21 @@ def logout():
     session.clear()
     flash("You have been logged out.", "success")
     return redirect(url_for("home"))
+
+
+# ============================== Patient list ==============================
+
+@bp.route("/patients")
+@role_required("doctor", "admin")
+def patients():
+    """
+    List all patient accounts. Doctors and admins only.
+
+    A patient who types this URL in gets a 403 Forbidden page, because
+    @role_required checks their role on the server.
+    """
+    patient_rows = get_db().execute(
+        "SELECT username, full_name, created_at FROM users "
+        "WHERE role = 'patient' ORDER BY full_name"
+    ).fetchall()
+    return render_template("auth/patients.html", patients=patient_rows)

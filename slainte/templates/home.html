@@ -5,7 +5,12 @@
   {% if current_user %}
     <h1>Hello, {{ current_user['full_name'] }}</h1>
     <p>You're logged in as a <strong>{{ current_user['role'] }}</strong>.</p>
-    <p class="muted">Your health records will appear here.</p>
+
+    {% if current_user['role'] in ('doctor', 'admin') %}
+      <p><a class="button" href="{{ url_for('auth.patients') }}">View patients</a></p>
+    {% else %}
+      <p class="muted">Your health records will appear here.</p>
+    {% endif %}
   {% else %}
     <h1>Secure healthcare records</h1>
     <p>Sláinte Secure stores and shares patient records using cryptography to protect

@@ -9,6 +9,8 @@
   <form method="post" class="form">
     {# Hidden CSRF token: proves the form came from our own page. #}
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {# The page to return to after logging in (checked on the server). #}
+    <input type="hidden" name="next" value="{{ next_page }}">
 
     <label for="username">Username</label>
     <input id="username" name="username" type="text" maxlength="30" required

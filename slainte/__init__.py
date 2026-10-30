@@ -35,6 +35,10 @@ def create_app():
         # guessing passwords over and over (brute force).
         LOGIN_MAX_ATTEMPTS=5,
         LOGIN_LOCKOUT_MINUTES=15,
+        # Session timeouts: log users out after this long with no activity,
+        # and after this long in total, however active they are.
+        SESSION_IDLE_MINUTES=15,
+        SESSION_MAX_HOURS=8,
     )
 
     # Set up the SQLite database and create any missing tables.
@@ -52,6 +56,11 @@ def create_app():
     @app.route("/")
     def home():
         return render_template("home.html")
+
+    @app.errorhandler(403)
+    def forbidden(error):
+        """Shown when a logged-in user opens a page their role can't access."""
+        return render_template("errors/403.html"), 403
 
     return app
 
