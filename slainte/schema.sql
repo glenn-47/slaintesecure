@@ -32,3 +32,19 @@ CREATE TABLE IF NOT EXISTS users (
 
     created_at      TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS records (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    patient_id       INTEGER NOT NULL REFERENCES users(id),
+    author_id        INTEGER NOT NULL REFERENCES users(id),  -- the doctor
+    encrypted_body   BLOB    NOT NULL,   -- nonce + ciphertext (title and content)
+    wrapped_key      BLOB    NOT NULL,   -- this record's data key, encrypted
+    created_at       TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS record_shares (
+    record_id   INTEGER NOT NULL REFERENCES records(id),
+    doctor_id   INTEGER NOT NULL REFERENCES users(id),
+    granted_at  TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (record_id, doctor_id)
+);
