@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+
+{% block title %}Records · Sláinte Secure{% endblock %}
+
+{% block content %}
+<section class="card">
+  <h1>{% if current_user['role'] == 'patient' %}My records{% else %}Records{% endif %}</h1>
+
+  {% if current_user['role'] == 'doctor' %}
+    <p><a class="button" href="{{ url_for('records.new_record') }}">New record</a></p>
+  {% endif %}
+
+  {% if records %}
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Title</th>
+          {% if current_user['role'] == 'doctor' %}<th>Patient</th>{% endif %}
+          <th>Written by</th>
+          <th>Date</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for record in records %}
+          <tr>
+            <td>
+              <a href="{{ url_for('records.view_record', record_id=record.id) }}">
+                {{ record.title if record.title else '(failed integrity check)' }}
+              </a>
+            </td>
+            {% if current_user['role'] == 'doctor' %}<td>{{ record.patient_name }}</td>{% endif %}
+            <td>{{ record.author_name }}</td>
+            <td>{{ record.created_at[:10] }}</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="muted">No records yet.</p>
+  {% endif %}
+</section>
+{% endblock %}

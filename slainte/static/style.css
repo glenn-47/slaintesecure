@@ -186,3 +186,30 @@ button:hover,
   font-size: 0.9rem;
   color: var(--muted);
 }
+
+/* ---------- Records ---------- */
+
+.form select,
+.form textarea {
+  width: 100%;
+  padding: 10px 12px;
+  margin-top: 6px;
+  border: 1px solid #c3d3d1;
+  border-radius: 6px;
+  font-size: 1rem;
+  font-family: inherit;
+  background: #fff;
+}
+
+.form select:focus,
+.form textarea:focus {
+  outline: 2px solid var(--teal);
+  border-color: var(--teal);
+}
+
+.record-content {
+  white-space: pre-wrap;
+  padding: 16px;
+  border-radius: 6px;
+  background: var(--bg);
+}
