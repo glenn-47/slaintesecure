@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block title %}Record · Sláinte Secure{% endblock %}
+
+{% block content %}
+<section class="card">
+  {% if body %}
+    <h1>{{ body['title'] }}</h1>
+  {% else %}
+    <h1>Record unavailable</h1>
+  {% endif %}
+
+  <p class="muted">
+    Patient: {{ record['patient_name'] }} ·
+    Written by {{ record['author_name'] }} ·
+    {{ record['created_at'][:16] }}
+  </p>
+
+  {% if body %}
+    {# Jinja escapes this automatically, so HTML typed into a record is shown
+       as text and can't run as a script (stops stored XSS). #}
+    <div class="record-content">{{ body['content'] }}</div>
+  {% endif %}
+
+  <p><a href="{{ url_for('records.list_records') }}">← Back to records</a></p>
+</section>
+{% endblock %}

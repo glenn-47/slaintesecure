@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}New record · Sláinte Secure{% endblock %}
+
+{% block content %}
+<section class="card">
+  <h1>New record</h1>
+
+  {% if patients %}
+    <form method="post" class="form" autocomplete="off">
+      {# Hidden CSRF token: proves the form came from our own page. #}
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <label for="patient_id">Patient</label>
+      <select id="patient_id" name="patient_id" required>
+        <option value="">Choose a patient…</option>
+        {% for patient in patients %}
+          <option value="{{ patient['id'] }}"
+            {% if form.get('patient_id') == patient['id'] | string %}selected{% endif %}>
+            {{ patient['full_name'] }} ({{ patient['username'] }})
+          </option>
+        {% endfor %}
+      </select>
+
+      <label for="title">Title</label>
+      <input id="title" name="title" type="text" maxlength="200" required
+             value="{{ form.get('title', '') }}">
+
+      <label for="content">Record</label>
+      <textarea id="content" name="content" rows="10" maxlength="10000" required>{{ form.get('content', '') }}</textarea>
+      <p class="hint">The title and record are encrypted before they're saved.</p>
+
+      <button type="submit">Save record</button>
+    </form>
+  {% else %}
+    <p class="muted">No patients have registered yet.</p>
+  {% endif %}
+</section>
+{% endblock %}

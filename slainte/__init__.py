@@ -41,6 +41,11 @@ def create_app():
         SESSION_MAX_HOURS=8,
     )
 
+    # Encrypted records: the master key that wraps every record's own key.
+    # Kept in the instance folder, never in the database (see crypto.py).
+    from .crypto import load_or_create_master_key
+    app.config["RECORD_MASTER_KEY"] = load_or_create_master_key(app.instance_path)
+
     # Set up the SQLite database and create any missing tables.
     from . import db
     db.init_app(app)
@@ -52,6 +57,10 @@ def create_app():
     # Accounts and access: registration, login, logout, roles.
     from .auth import bp as auth_bp
     app.register_blueprint(auth_bp)
+
+    # Encrypted records: creating, viewing and sharing health records.
+    from .records import bp as records_bp
+    app.register_blueprint(records_bp)
 
     @app.route("/")
     def home():

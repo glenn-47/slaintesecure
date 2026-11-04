@@ -6,10 +6,15 @@
     <h1>Hello, {{ current_user['full_name'] }}</h1>
     <p>You're logged in as a <strong>{{ current_user['role'] }}</strong>.</p>
 
-    {% if current_user['role'] in ('doctor', 'admin') %}
+    {% if current_user['role'] == 'doctor' %}
+      <p>
+        <a class="button" href="{{ url_for('records.list_records') }}">Records</a>
+        <a class="button button-secondary" href="{{ url_for('auth.patients') }}">View patients</a>
+      </p>
+    {% elif current_user['role'] == 'admin' %}
       <p><a class="button" href="{{ url_for('auth.patients') }}">View patients</a></p>
     {% else %}
-      <p class="muted">Your health records will appear here.</p>
+      <p><a class="button" href="{{ url_for('records.list_records') }}">My records</a></p>
     {% endif %}
   {% else %}
     <h1>Secure healthcare records</h1>
