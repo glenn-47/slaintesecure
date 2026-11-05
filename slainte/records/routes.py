@@ -8,6 +8,7 @@ from flask import abort, current_app, flash, redirect, render_template, request,
 from ..auth import current_user, role_required
 from ..crypto import open_record, seal_record
 from ..db import get_db
+from ..audit.log import log_event
 from . import bp
 from .access import can_view
 
@@ -36,6 +37,7 @@ def _decrypt(record):
         )
     except InvalidTag:
         current_app.logger.warning("Record %s failed its integrity check", record["id"])
+        log_event("integrity_check_failed", current_user()["id"], f"record_id={record['id']}")
         return None
     return json.loads(text)
 
@@ -182,6 +184,7 @@ def new_record():
         (encrypted_body, wrapped_key, record_id),
     )
     db.commit()
+    log_event("record_created", current_user()["id"], f"record_id={record_id} patient_id={patient['id']}")
 
     flash("Record saved and encrypted.", "success")
     return redirect(url_for("records.view_record", record_id=record_id))
@@ -202,5 +205,7 @@ def view_record(record_id):
             "with, so it can't be shown.",
             "error",
         )
-
+    if body is not None:                                                    # NEW
+        log_event("record_viewed", current_user()["id"], f"record_id={record_id}")  # NEW
+        
     return render_template("records/view.html", record=record, body=body)
