@@ -79,4 +79,23 @@ CREATE TABLE IF NOT EXISTS audit_log (
 
     prev_hash   TEXT    NOT NULL,   -- previous row's entry_hash (64 zeros for the first row)
     entry_hash  TEXT    NOT NULL    -- HMAC-SHA256 of this row, hex
+    
+);
+
+-- Each doctor's Ed25519 key pair, made the first time they sign.
+-- The private key is encrypted with the doctor's password, so even with
+-- the database, nobody else can sign as them.
+CREATE TABLE IF NOT EXISTS signing_keys (
+    doctor_id              INTEGER PRIMARY KEY REFERENCES users(id),
+    public_key             BLOB NOT NULL,   -- raw 32 bytes, used to verify
+    encrypted_private_key  BLOB NOT NULL,   -- PEM, password-encrypted
+    created_at             TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- One signature per record, kept separate so Filip's records table is untouched.
+CREATE TABLE IF NOT EXISTS record_signatures (
+    record_id   INTEGER PRIMARY KEY REFERENCES records(id),
+    doctor_id   INTEGER NOT NULL REFERENCES users(id),
+    signature   BLOB NOT NULL,              -- 64-byte Ed25519 signature
+    signed_at   TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

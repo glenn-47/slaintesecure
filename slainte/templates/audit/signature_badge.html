@@ -1,0 +1,16 @@
+{# Included by records/view.html. Checks the signature on every view. #}
+{% set sig = signature_status(record) %}
+{% if sig.state == "valid" %}
+  <p role="status" style="padding:0.75em; border:2px solid green; background:#e8f5e9;">
+    ✓ Signed by Dr {{ sig.signer_name }} on {{ sig.signed_at }} (UTC)
+  </p>
+{% elif sig.state == "invalid" %}
+  <p role="alert" style="padding:0.75em; border:2px solid #c62828; background:#ffebee;">
+    ✗ <strong>Signature check failed.</strong> This record has changed since it was signed, or the signature isn't genuine.
+  </p>
+{% else %}
+  <p>Not signed yet.</p>
+  {% if current_user and current_user['id'] == record['author_id'] %}
+    <p><a href="{{ url_for('audit.sign_record', record_id=record['id']) }}">Sign this record</a></p>
+  {% endif %}
+{% endif %}

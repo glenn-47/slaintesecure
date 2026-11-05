@@ -6,6 +6,7 @@
 <section class="card">
   {% if body %}
     <h1>{{ body['title'] }}</h1>
+    {% include "audit/signature_badge.html" %}
   {% else %}
     <h1>Record unavailable</h1>
   {% endif %}
