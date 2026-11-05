@@ -46,6 +46,11 @@ def create_app():
     from .crypto import load_or_create_master_key
     app.config["RECORD_MASTER_KEY"] = load_or_create_master_key(app.instance_path)
 
+    # Integrity and audit: the secret key for the audit log's HMAC chain.
+    # Separate from RECORD_MASTER_KEY so each key has one job (see audit/keys.py).
+    from .audit.keys import load_or_create_audit_key
+    app.config["AUDIT_HMAC_KEY"] = load_or_create_audit_key(app.instance_path)
+
     # Set up the SQLite database and create any missing tables.
     from . import db
     db.init_app(app)
@@ -61,6 +66,10 @@ def create_app():
     # Encrypted records: creating, viewing and sharing health records.
     from .records import bp as records_bp
     app.register_blueprint(records_bp)
+
+    # Integrity and audit: tamper-evident log and record signatures.
+    from .audit import bp as audit_bp
+    app.register_blueprint(audit_bp)
 
     @app.route("/")
     def home():
