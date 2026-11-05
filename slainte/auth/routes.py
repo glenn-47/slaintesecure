@@ -7,6 +7,7 @@ from datetime import datetime, timedelta, timezone
 from flask import current_app, flash, redirect, render_template, request, session, url_for
 
 from ..db import get_db
+from ..audit.log import log_event
 from . import bp
 from .decorators import role_required
 from .passwords import hash_password, needs_rehash, password_problems, verify_password
@@ -119,6 +120,7 @@ def login():
     # --- Unknown username: do the same work as a real check, then fail. ---
     if user is None:
         verify_password(_DUMMY_HASH, password)
+        log_event("login_failed", None, "unknown account")
         flash(generic_error, "error")
         return render_template("auth/login.html", username=username, next_page=next_page), 401
 
@@ -130,6 +132,7 @@ def login():
         locked_until = datetime.fromisoformat(user["locked_until"])
         if now < locked_until:
             minutes_left = int((locked_until - now).total_seconds() // 60) + 1
+            log_event("login_failed", user["id"], "account is locked")
             # This does reveal the account exists, a deliberate trade-off:
             # a genuine user needs to know why they can't log in.
             flash(
@@ -164,6 +167,10 @@ def login():
             flash(generic_error, "error")
 
         db.commit()
+        if failures >= max_attempts:                                          
+            log_event("account_locked", user["id"], f"after {failures} failed attempts")  
+        else:                                                                 
+            log_event("login_failed", user["id"], "wrong password")           
         return render_template("auth/login.html", username=username, next_page=next_page), 401
 
     # --- Correct password: reset the counters and start the session. ---
@@ -182,6 +189,7 @@ def login():
     db.commit()
 
     start_session(user["id"])
+    log_event("login", user["id"]) 
 
     flash(f"Welcome back, {user['username']}.", "success")
     return redirect(_safe_next_page(next_page))
@@ -208,14 +216,10 @@ def _safe_next_page(next_page):
 
 @bp.route("/logout", methods=["POST"])
 def logout():
-    """
-    Log the user out by wiping the session.
-
-    POST only (from a form with a CSRF token), never a plain link: if
-    logout were a GET link, any other website could log our users out just
-    by embedding that link in an image tag.
-    """
+    user = current_user()          # NEW: who it was, before the session is cleared
     session.clear()
+    if user:                       # NEW: None if their session had already expired
+        log_event("logout", user["id"])
     flash("You have been logged out.", "success")
     return redirect(url_for("home"))
 
