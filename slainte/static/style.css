@@ -213,3 +213,20 @@ button:hover,
   border-radius: 6px;
   background: var(--bg);
 }
+
+/* ---------- Sharing ---------- */
+
+.card-spaced { margin-top: 20px; }
+
+.card h2 { margin-top: 0; }
+
+.actions { text-align: right; }
+
+.button-danger {
+  margin: 0;
+  padding: 6px 14px;
+  background: #fff;
+  color: #a33a1f;
+  box-shadow: inset 0 0 0 2px #a33a1f;
+  font-size: 0.9rem;
+}

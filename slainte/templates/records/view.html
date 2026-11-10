@@ -24,4 +24,58 @@
 
   <p><a href="{{ url_for('records.list_records') }}">← Back to records</a></p>
 </section>
+
+{% if current_user['role'] == 'patient' %}
+<section class="card card-spaced">
+  <h2>Who can see this record</h2>
+  <p class="muted">
+    You, and {{ record['author_name'] }} who wrote it. Share it with another
+    doctor to let them read it too. You can take access away at any time.
+  </p>
+
+  {% if shared_with %}
+    <table class="table">
+      <thead>
+        <tr><th>Doctor</th><th>Shared</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for doctor in shared_with %}
+          <tr>
+            <td>{{ doctor['full_name'] }} ({{ doctor['username'] }})</td>
+            <td>{{ doctor['granted_at'][:10] }}</td>
+            <td class="actions">
+              <form class="inline-form" method="post"
+                    action="{{ url_for('records.revoke_share', record_id=record['id']) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="doctor_id" value="{{ doctor['id'] }}">
+                <button type="submit" class="button-danger">Revoke</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% endif %}
+
+  {% if can_share_with %}
+    <form method="post" class="form"
+          action="{{ url_for('records.share_record', record_id=record['id']) }}">
+      {# Hidden CSRF token: proves the form came from our own page. #}
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <label for="doctor_id">Share with a doctor</label>
+      <select id="doctor_id" name="doctor_id" required>
+        <option value="">Choose a doctor…</option>
+        {% for doctor in can_share_with %}
+          <option value="{{ doctor['id'] }}">{{ doctor['full_name'] }} ({{ doctor['username'] }})</option>
+        {% endfor %}
+      </select>
+
+      <button type="submit">Share</button>
+    </form>
+  {% elif not shared_with %}
+    <p class="muted">There are no other doctors to share with yet.</p>
+  {% endif %}
+</section>
+{% endif %}
 {% endblock %}

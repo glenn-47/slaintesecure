@@ -1,4 +1,4 @@
-"""Web pages for records: list, create (doctors) and view."""
+"""Web pages for records: list, create (doctors), view, and share (patients)."""
 
 import json
 
@@ -40,6 +40,26 @@ def _decrypt(record):
     return json.loads(text)
 
 
+def _patient_from_query():
+    """
+    Read ?patient=<username> from the URL and return that patient, or None.
+
+    Stops with 404 if the username isn't a patient account. Doctors can
+    already see every patient's name on the patient list, so this reveals
+    nothing new; it never grants access to any records by itself.
+    """
+    username = request.args.get("patient", "").strip()
+    if not username:
+        return None
+    patient = get_db().execute(
+        "SELECT id, username, full_name FROM users WHERE username = ? AND role = 'patient'",
+        (username,),
+    ).fetchone()
+    if patient is None:
+        abort(404)
+    return patient
+
+
 def _get_viewable_record_or_404(record_id):
     """
     Load a record the current user is allowed to see, or stop with 404.
@@ -72,12 +92,19 @@ def list_records():
     Patients see their own records. Doctors see records they wrote, plus
     any that patients have shared with them.
 
+    Doctors can add ?patient=<username> (the links on the patient list) to
+    narrow the list to one patient. That only FILTERS the records the doctor
+    could already see; it never adds any. A doctor who opens a patient they
+    have no records for just sees an empty list, so the patient list can't
+    be used as a way round sharing.
+
     The SQL only ever selects rows the user is allowed to see, and each
     one is checked with can_view() as well, so the list and the record
     page can never disagree about access.
     """
     user = current_user()
     db = get_db()
+    patient = None
 
     if user["role"] == "patient":
         rows = db.execute(
@@ -89,16 +116,21 @@ def list_records():
             (user["id"],),
         ).fetchall()
     else:
-        rows = db.execute(
+        patient = _patient_from_query()
+        sql = (
             "SELECT r.*, p.full_name AS patient_name, a.full_name AS author_name "
             "FROM records r "
             "JOIN users p ON p.id = r.patient_id "
             "JOIN users a ON a.id = r.author_id "
-            "WHERE r.author_id = ? "
-            "   OR r.id IN (SELECT record_id FROM record_shares WHERE doctor_id = ?) "
-            "ORDER BY r.created_at DESC, r.id DESC",
-            (user["id"], user["id"]),
-        ).fetchall()
+            "WHERE (r.author_id = ? "
+            "   OR r.id IN (SELECT record_id FROM record_shares WHERE doctor_id = ?)) "
+        )
+        params = [user["id"], user["id"]]
+        if patient is not None:
+            sql += "AND r.patient_id = ? "
+            params.append(patient["id"])
+        sql += "ORDER BY r.created_at DESC, r.id DESC"
+        rows = db.execute(sql, params).fetchall()
 
     records = []
     for row in rows:
@@ -113,7 +145,7 @@ def list_records():
             "created_at": row["created_at"],
         })
 
-    return render_template("records/list.html", records=records)
+    return render_template("records/list.html", records=records, patient=patient)
 
 
 # ============================= Create record =============================
@@ -134,7 +166,10 @@ def new_record():
     ).fetchall()
 
     if request.method == "GET":
-        return render_template("records/new.html", patients=patients, form={})
+        # Coming from a patient's page: pick that patient in the dropdown.
+        patient = _patient_from_query()
+        form = {"patient_id": str(patient["id"])} if patient else {}
+        return render_template("records/new.html", patients=patients, form=form)
 
     form = request.form
     title = form.get("title", "").strip()
@@ -203,4 +238,127 @@ def view_record(record_id):
             "error",
         )
 
-    return render_template("records/view.html", record=record, body=body)
+    # Patients see who has access to their record and can change it.
+    shared_with, can_share_with = [], []
+    if current_user()["role"] == "patient":
+        shared_with = _doctors_shared_with(record)
+        can_share_with = _doctors_not_yet_shared_with(record)
+
+    return render_template(
+        "records/view.html",
+        record=record,
+        body=body,
+        shared_with=shared_with,
+        can_share_with=can_share_with,
+    )
+
+
+# ================================ Sharing ================================
+#
+# A patient decides which doctors can read each of their records. Sharing
+# adds a row to record_shares; revoking deletes it. can_view() checks that
+# table on every request, so access starts and stops immediately.
+#
+# WHY SHARING DOESN'T RE-ENCRYPT ANYTHING
+# The server holds the master key and decrypts records for whoever
+# can_view() allows, so sharing is an access-control decision, not a new
+# encryption. That keeps revoking instant and reliable: there's no copy of
+# the key handed out that we'd need to take back. (A stronger design gives
+# each user their own key pair and wraps the record key for each doctor,
+# so even the server can't read records. We'd note that as future work.)
+#
+# Only the patient the record is about can share or revoke it. Not the
+# doctor who wrote it, and not a doctor it was shared with: a doctor
+# can't pass a patient's record on to colleagues without the patient's
+# say-so.
+
+def _get_own_record_or_404(record_id):
+    """Load a record that belongs to the logged-in patient, or stop with 404."""
+    record = get_db().execute(
+        "SELECT * FROM records WHERE id = ? AND patient_id = ?",
+        (record_id, current_user()["id"]),
+    ).fetchone()
+    if record is None:
+        abort(404)
+    return record
+
+
+def _doctors_shared_with(record):
+    return get_db().execute(
+        "SELECT u.id, u.full_name, u.username, s.granted_at "
+        "FROM record_shares s JOIN users u ON u.id = s.doctor_id "
+        "WHERE s.record_id = ? ORDER BY u.full_name",
+        (record["id"],),
+    ).fetchall()
+
+
+def _doctors_not_yet_shared_with(record):
+    """Doctors the patient could share with: not the author, not already shared."""
+    return get_db().execute(
+        "SELECT id, full_name, username FROM users "
+        "WHERE role = 'doctor' AND id != ? "
+        "  AND id NOT IN (SELECT doctor_id FROM record_shares WHERE record_id = ?) "
+        "ORDER BY full_name",
+        (record["author_id"], record["id"]),
+    ).fetchall()
+
+
+def _doctor_id_from_form():
+    """
+    Read doctor_id from the form and check it's a real doctor account.
+
+    Never trust form values: someone could edit the page and send the ID
+    of a patient or admin, so we check the role in the database.
+    """
+    doctor_id = request.form.get("doctor_id", "")
+    if not doctor_id.isdigit():
+        return None
+    doctor = get_db().execute(
+        "SELECT id, full_name FROM users WHERE id = ? AND role = 'doctor'",
+        (int(doctor_id),),
+    ).fetchone()
+    return doctor
+
+
+@bp.route("/<int:record_id>/share", methods=["POST"])
+@role_required("patient")
+def share_record(record_id):
+    """A patient gives one specific doctor access to one of their records."""
+    record = _get_own_record_or_404(record_id)
+    doctor = _doctor_id_from_form()
+
+    if doctor is None:
+        flash("Please choose a doctor.", "error")
+    elif doctor["id"] == record["author_id"]:
+        flash(f"{doctor['full_name']} wrote this record, so they already have access.", "error")
+    else:
+        db = get_db()
+        # OR IGNORE: sharing twice with the same doctor is harmless,
+        # the primary key (record_id, doctor_id) stops duplicates.
+        db.execute(
+            "INSERT OR IGNORE INTO record_shares (record_id, doctor_id) VALUES (?, ?)",
+            (record["id"], doctor["id"]),
+        )
+        db.commit()
+        flash(f"Shared with {doctor['full_name']}.", "success")
+
+    return redirect(url_for("records.view_record", record_id=record["id"]))
+
+
+@bp.route("/<int:record_id>/revoke", methods=["POST"])
+@role_required("patient")
+def revoke_share(record_id):
+    """A patient takes a doctor's access away again. Takes effect immediately."""
+    record = _get_own_record_or_404(record_id)
+    doctor = _doctor_id_from_form()
+
+    if doctor is not None:
+        db = get_db()
+        db.execute(
+            "DELETE FROM record_shares WHERE record_id = ? AND doctor_id = ?",
+            (record["id"], doctor["id"]),
+        )
+        db.commit()
+        flash(f"{doctor['full_name']} can no longer see this record.", "success")
+
+    return redirect(url_for("records.view_record", record_id=record["id"]))
