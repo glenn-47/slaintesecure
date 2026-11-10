@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Sign record{% endblock %}
+{% block content %}
+<h1>Sign record #{{ record_id }}</h1>
+<p>Signing confirms you wrote this record and locks in its contents. Re-enter your password to unlock your signing key.</p>
+<form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <label for="password">Your password</label>
+  <input id="password" type="password" name="password" required autocomplete="current-password">
+  <button type="submit">Sign record</button>
+</form>
+<p><a href="{{ url_for('records.view_record', record_id=record_id) }}">Cancel</a></p>
+{% endblock %}

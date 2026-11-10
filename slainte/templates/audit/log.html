@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Audit log{% endblock %}
+
+{% block content %}
+<h1>Audit log</h1>
+
+<p>
+  Every login, record access and signature is recorded here. Each entry is
+  chained to the one before it with HMAC-SHA256, so any change to past
+  entries can be detected.
+</p>
+
+<p><a href="{{ url_for('audit.log_page', verify=1) }}"><strong>Verify chain</strong></a></p>
+
+{% if result %}
+  {% if result.ok %}
+    <p role="status" style="padding:0.75em; border:2px solid green; background:#e8f5e9;">
+      ✓ {{ result.reason }}
+    </p>
+  {% else %}
+    <p role="alert" style="padding:0.75em; border:2px solid #c62828; background:#ffebee;">
+      ✗ <strong>Tampering detected.</strong> {{ result.reason }}
+    </p>
+  {% endif %}
+{% endif %}
+
+{% if entries %}
+  <p>Showing the newest {{ entries|length }} entries (up to {{ limit }}).</p>
+  <table>
+    <thead>
+      <tr>
+        <th>#</th><th>Time (UTC)</th><th>User</th><th>Action</th><th>Details</th><th>Hash</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for e in entries %}
+        {# Highlight the first broken entry, if verification found one. #}
+        <tr {% if result and result.broken_at == e.id %}style="background:#ffebee; font-weight:bold;"{% endif %}>
+          <td>{{ e.id }}</td>
+          <td>{{ e.timestamp }}</td>
+          <td>{{ e.username or "-" }}</td>
+          <td>{{ e.action }}</td>
+          <td>{{ e.details }}</td>
+          {# First 12 characters are enough to tell hashes apart on screen;
+             hover to see the full value. #}
+          <td><code title="{{ e.entry_hash }}">{{ e.entry_hash[:12] }}…</code></td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% else %}
+  <p>No entries yet.</p>
+{% endif %}
+{% endblock %}
