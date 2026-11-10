@@ -41,7 +41,6 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 NONCE_SIZE = 12  # 96 bits, the standard nonce size for GCM
 
 
-# ============================== Master key ==============================
 
 def load_or_create_master_key(instance_path):
     """Return the master key, creating a random one on first run."""
@@ -52,8 +51,6 @@ def load_or_create_master_key(instance_path):
     with open(key_path, "rb") as f:
         return f.read()
 
-
-# ===================== Low-level encrypt / decrypt ======================
 
 def _encrypt(key, data, associated_data):
     """Encrypt bytes with AES-GCM. Returns nonce + ciphertext (with tag)."""
@@ -73,7 +70,6 @@ def _ad(purpose, record_id):
     return f"slainte:{purpose}:{record_id}".encode()
 
 
-# ======================= What the rest of the app uses ===================
 
 def seal_record(master_key, plaintext, record_id):
     """

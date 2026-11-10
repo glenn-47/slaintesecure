@@ -12,6 +12,8 @@ A secure health records app for our Security Fundamentals and Development CA. We
 - Doctor and admin accounts (made from the terminal)
 - Pages can be locked to certain roles, e.g. only doctors can see the patient list
 - You get logged out after 15 minutes of doing nothing, or 8 hours in total
+- Doctors can write health records for patients, which are encrypted before they're saved
+- Patients can see their own records, and share each one with specific doctors (and take access away again)
 
 ## Team
 
@@ -27,6 +29,7 @@ A secure health records app for our Security Fundamentals and Development CA. We
 - Flask for the web pages
 - SQLite for the database
 - argon2-cffi for password hashing
+- cryptography for encrypting records (AES-256-GCM)
 
 ## Getting it running
 
@@ -86,6 +89,45 @@ flask --app run create-user --role admin
 
 It asks for a username, full name and password.
 
+## Encrypted records
+
+Every record is encrypted before it goes in the database, so the database file
+on its own only holds unreadable ciphertext.
+
+- **Envelope encryption:** each record gets its own random AES-256 key. The record
+  is encrypted with that key, and the key is then encrypted ("wrapped") with a
+  master key. Only the wrapped key is stored in the database. The master key lives
+  in `instance/record_key`, which is never committed.
+- **AES-256-GCM:** authenticated encryption, so it hides the record *and* detects
+  any change to it. A tampered record fails its integrity check instead of showing
+  corrupted data.
+- **A fresh random nonce every time**, so the same record never encrypts the same
+  way twice.
+- **The record ID is bound into the encryption** (associated data), so an encrypted
+  record can't be moved into another record's row.
+- **The title is encrypted too**, since a title alone can give away medical details.
+
+Who can read a record is decided in one place, `can_view()` in
+`slainte/records/access.py`:
+
+- the patient it's about,
+- the doctor who wrote it,
+- doctors the patient has shared it with.
+
+Nobody else can, including admins. Checking the record itself, not just the role,
+stops one doctor reading another doctor's patients by changing the number in the
+URL (IDOR). Anyone without access gets "Not Found", so they can't tell whether a
+record exists.
+
+Only the patient can share or revoke a record. Revoking works immediately. If you
+use the records in your own part:
+
+```python
+from slainte.records import can_view
+
+can_view(user, record)   # True if this user may read the record
+```
+
 ## Adding a package
 
 Install it with your venv active, then add it to `requirements.txt` with the version number so everyone has the same one:
@@ -128,12 +170,16 @@ slaintesecure/
     ├── db.py               # database connection
     ├── schema.sql          # database tables
     ├── csrf.py             # CSRF protection
+    ├── crypto.py           # record encryption (AES-256-GCM, envelope encryption)
     ├── auth/               # accounts and login
     │   ├── passwords.py    # Argon2 hashing and password rules
     │   ├── routes.py       # sign up, login, logout, patient list
     │   ├── session.py      # current_user() and session timeouts
     │   ├── decorators.py   # login_required and role_required
     │   └── cli.py          # create-user command
+    ├── records/            # encrypted records
+    │   ├── routes.py       # list, create, view, share and revoke
+    │   └── access.py       # can_view(): who may read a record
     ├── templates/          # HTML pages
     └── static/             # CSS
 ```

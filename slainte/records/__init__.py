@@ -1,5 +1,5 @@
 """
-Encrypted records: creating, viewing and (next) sharing health records.
+Encrypted records: creating, viewing and sharing health records.
 
 Like auth/, this is a Flask blueprint that create_app() plugs into the
 main app. All pages live under /records.

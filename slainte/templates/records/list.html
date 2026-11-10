@@ -4,10 +4,24 @@
 
 {% block content %}
 <section class="card">
-  <h1>{% if current_user['role'] == 'patient' %}My records{% else %}Records{% endif %}</h1>
+  {% if patient %}
+    <h1>Records for {{ patient['full_name'] }}</h1>
+    <p class="muted">
+      Showing the records for this patient that you wrote, or that they've shared with you.
+      <a href="{{ url_for('records.list_records') }}">Show all your records</a>
+    </p>
+  {% else %}
+    <h1>{% if current_user['role'] == 'patient' %}My records{% else %}Records{% endif %}</h1>
+  {% endif %}
 
   {% if current_user['role'] == 'doctor' %}
-    <p><a class="button" href="{{ url_for('records.new_record') }}">New record</a></p>
+    <p>
+      {% if patient %}
+        <a class="button" href="{{ url_for('records.new_record', patient=patient['username']) }}">New record for {{ patient['full_name'] }}</a>
+      {% else %}
+        <a class="button" href="{{ url_for('records.new_record') }}">New record</a>
+      {% endif %}
+    </p>
   {% endif %}
 
   {% if records %}
@@ -15,7 +29,7 @@
       <thead>
         <tr>
           <th>Title</th>
-          {% if current_user['role'] == 'doctor' %}<th>Patient</th>{% endif %}
+          {% if current_user['role'] == 'doctor' and not patient %}<th>Patient</th>{% endif %}
           <th>Written by</th>
           <th>Date</th>
         </tr>
@@ -28,13 +42,18 @@
                 {{ record.title if record.title else '(failed integrity check)' }}
               </a>
             </td>
-            {% if current_user['role'] == 'doctor' %}<td>{{ record.patient_name }}</td>{% endif %}
+            {% if current_user['role'] == 'doctor' and not patient %}<td>{{ record.patient_name }}</td>{% endif %}
             <td>{{ record.author_name }}</td>
             <td>{{ record.created_at[:10] }}</td>
           </tr>
         {% endfor %}
       </tbody>
     </table>
+  {% elif patient %}
+    <p class="muted">
+      You don't have any of {{ patient['full_name'] }}'s records yet. You'll see records
+      you write for them, and any they choose to share with you.
+    </p>
   {% else %}
     <p class="muted">No records yet.</p>
   {% endif %}
