@@ -1,6 +1,7 @@
 """Web pages for records: list, create (doctors), view, and share (patients)."""
 
 import json
+import re
 
 from cryptography.exceptions import InvalidTag
 from flask import abort, current_app, flash, redirect, render_template, request, url_for
@@ -14,8 +15,22 @@ from .access import can_view
 TITLE_MAX = 200
 CONTENT_MAX = 10_000
 
+# An account ID from a form: 1 to 18 plain ASCII digits. We can't use
+# str.isdigit() for this: it also accepts other digit characters like "²",
+# which then crash int(), and it allows numbers too big for SQLite's 64-bit
+# integers, which crash the query. Either way a bad form value would cause
+# a 500 error. 18 digits always fits in 64 bits.
+ID_PATTERN = re.compile(r"[0-9]{1,18}")
+
 
 # ================================ Helpers ================================
+
+def _parse_id(value):
+    """Turn a form value into an account ID, or None if it isn't a valid one."""
+    if value is None or not ID_PATTERN.fullmatch(value):
+        return None
+    return int(value)
+
 
 def _master_key():
     return current_app.config["RECORD_MASTER_KEY"]
@@ -185,9 +200,10 @@ def new_record():
     # Never trust the patient_id from the form: someone could edit the
     # page and send any number. Check it really is a patient account.
     patient = None
-    if patient_id.isdigit():
+    patient_id = _parse_id(patient_id)
+    if patient_id is not None:
         patient = db.execute(
-            "SELECT id FROM users WHERE id = ? AND role = 'patient'", (int(patient_id),)
+            "SELECT id FROM users WHERE id = ? AND role = 'patient'", (patient_id,)
         ).fetchone()
     if patient is None:
         errors.append("Please choose a patient.")
@@ -310,12 +326,12 @@ def _doctor_id_from_form():
     Never trust form values: someone could edit the page and send the ID
     of a patient or admin, so we check the role in the database.
     """
-    doctor_id = request.form.get("doctor_id", "")
-    if not doctor_id.isdigit():
+    doctor_id = _parse_id(request.form.get("doctor_id"))
+    if doctor_id is None:
         return None
     doctor = get_db().execute(
         "SELECT id, full_name FROM users WHERE id = ? AND role = 'doctor'",
-        (int(doctor_id),),
+        (doctor_id,),
     ).fetchone()
     return doctor
 
