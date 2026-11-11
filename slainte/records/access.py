@@ -1,25 +1,11 @@
 """
-Who is allowed to read a record?
+This file allows the users to access certain records based off of their roles
 
-This is the one place that answers that question, and every records page
-calls it. Keeping the rule in a single function means a page can't
-accidentally use a weaker check than the others.
-
-WHY NOT JUST CHECK THE ROLE?
-@role_required("doctor") only proves someone IS a doctor, not that they're
-THIS patient's doctor. Without a per-record check, any doctor could change
-the number in /records/5 to /records/6 and read a stranger's record. That
-attack is called IDOR (Insecure Direct Object Reference), and it's one of
-the most common access-control bugs on the web (OWASP A01: Broken Access
-Control). So as well as the role, we check how the user is connected to
-this particular record.
-
-The rule (least privilege):
-  - the patient the record is about can read it,
-  - the doctor who wrote it can read it,
-  - a doctor the patient has shared it with can read it,
-  - nobody else, including admins. Admins manage accounts; they have no
-    medical reason to read records, so they aren't given access.
+E.G.
+Patient receives a record from a doctor, and then patient is able to 
+view and share the record with other doctors only.
+Doctors have access to their records that they have created, and records that
+the patients have sent them.
 """
 
 from ..db import get_db
