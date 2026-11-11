@@ -13,39 +13,27 @@ from ..audit.log import log_event
 from . import bp
 from .access import can_view
 
-TITLE_MAX = 200
-CONTENT_MAX = 10_000
+TITLE_MAX = 200 # max length of record title
+CONTENT_MAX = 10_000 #max length of record content
 
-# An account ID from a form: 1 to 18 plain ASCII digits. We can't use
-# str.isdigit() for this: it also accepts other digit characters like "²",
-# which then crash int(), and it allows numbers too big for SQLite's 64-bit
-# integers, which crash the query. Either way a bad form value would cause
-# a 500 error. 18 digits always fits in 64 bits.
+
 ID_PATTERN = re.compile(r"[0-9]{1,18}")
 
 
-# ================================ Helpers ================================
-
+""" Helpers for parsing and validating record IDs. """
 def _parse_id(value):
-    """Turn a form value into an account ID, or None if it isn't a valid one."""
+    """Turn a form into an account ID, else return none"""
     if value is None or not ID_PATTERN.fullmatch(value):
         return None
     return int(value)
-
-
+ 
+""" masterkey for encrypted records"""
 def _master_key():
     return current_app.config["RECORD_MASTER_KEY"]
 
-
+""" Decrypt records"""
 def _decrypt(record):
-    """
-    Decrypt a record row into a dict with "title" and "content".
 
-    Returns None if decryption fails. GCM only fails if the ciphertext,
-    the wrapped key or the record ID has been changed, i.e. someone
-    tampered with the database, so we refuse to show anything rather
-    than display data we can't trust.
-    """
     try:
         text = open_record(
             _master_key(), record["encrypted_body"], record["wrapped_key"], record["id"]
@@ -56,15 +44,9 @@ def _decrypt(record):
         return None
     return json.loads(text)
 
-
+""" Get a patient from the query string"""
 def _patient_from_query():
-    """
-    Read ?patient=<username> from the URL and return that patient, or None.
-
-    Stops with 404 if the username isn't a patient account. Doctors can
-    already see every patient's name on the patient list, so this reveals
-    nothing new; it never grants access to any records by itself.
-    """
+        
     username = request.args.get("patient", "").strip()
     if not username:
         return None
@@ -76,16 +58,9 @@ def _patient_from_query():
         abort(404)
     return patient
 
-
+"""Get records for the user, or else none if the user has no records or the user is not logged in."""
 def _get_viewable_record_or_404(record_id):
-    """
-    Load a record the current user is allowed to see, or stop with 404.
-
-    We answer 404 Not Found, not 403 Forbidden, when the user isn't
-    allowed in. A 403 would confirm "this record exists, you just can't
-    see it", which lets someone count records or probe IDs. With 404,
-    "not yours" and "doesn't exist" look exactly the same.
-    """
+ 
     record = get_db().execute(
         "SELECT r.*, p.full_name AS patient_name, a.full_name AS author_name "
         "FROM records r "
@@ -106,18 +81,15 @@ def _get_viewable_record_or_404(record_id):
 @role_required("patient", "doctor")
 def list_records():
     """
-    Patients see their own records. Doctors see records they wrote, plus
-    any that patients have shared with them.
+    Patients can only see their own records that were written by doctors.
+    Doctors can see records that only they wrote, or records that the patient
+    shared to the doctor.
 
-    Doctors can add ?patient=<username> (the links on the patient list) to
-    narrow the list to one patient. That only FILTERS the records the doctor
-    could already see; it never adds any. A doctor who opens a patient they
-    have no records for just sees an empty list, so the patient list can't
-    be used as a way round sharing.
+    Doctor can filter a patients records by clicking on a patients name
+    in the list of records, itll then show the doctor the patients records
+    or have the ability to create a new record for the patient.
 
-    The SQL only ever selects rows the user is allowed to see, and each
-    one is checked with can_view() as well, so the list and the record
-    page can never disagree about access.
+    Using SQL, the user can only see recrods that they are able to view.
     """
     user = current_user()
     db = get_db()
@@ -171,11 +143,9 @@ def list_records():
 @role_required("doctor")
 def new_record():
     """
-    A doctor writes a new record for a patient.
-
-    The title and content are encrypted together, so nothing about the
-    record's medical content (not even "HIV test results" as a title) is
-    stored readable in the database.
+    The doctor can crete a new record for a patient
+    and the patient will be able to recieve and see the record in their list
+    of records.
     """
     db = get_db()
     patients = db.execute(
@@ -183,7 +153,7 @@ def new_record():
     ).fetchall()
 
     if request.method == "GET":
-        # Coming from a patient's page: pick that patient in the dropdown.
+       #pick a patient in the dropdown.
         patient = _patient_from_query()
         form = {"patient_id": str(patient["id"])} if patient else {}
         return render_template("records/new.html", patients=patients, form=form)
@@ -199,8 +169,7 @@ def new_record():
     if not 1 <= len(content) <= CONTENT_MAX:
         errors.append(f"Please enter the record (up to {CONTENT_MAX:,} characters).")
 
-    # Never trust the patient_id from the form: someone could edit the
-    # page and send any number. Check it really is a patient account.
+    
     patient = None
     patient_id = _parse_id(patient_id)
     if patient_id is not None:
@@ -214,12 +183,7 @@ def new_record():
         for error in errors:
             flash(error, "error")
         return render_template("records/new.html", patients=patients, form=form), 400
-
-    # The record ID is bound into the encryption (see crypto.py), but
-    # SQLite only gives us the ID once the row exists. So we insert a row
-    # with empty placeholders, encrypt using its new ID, then fill it in.
-    # Both steps happen before commit(), so if anything fails nothing is
-    # saved and an unencrypted or half-written record can never exist.
+    """The record is created and encrypted and then stored in the database."""
     cursor = db.execute(
         "INSERT INTO records (patient_id, author_id, encrypted_body, wrapped_key) "
         "VALUES (?, ?, X'', X'')",
@@ -257,11 +221,10 @@ def view_record(record_id):
             "error",
         )
 
-    # Audit (Andrew): log successful views only, never the record's contents.
     if body is not None:
         log_event("record_viewed", current_user()["id"], f"record_id={record_id}")
 
-    # Patients see who has access to their record and can change it.
+    """ Patients can see who can see their records"""
     shared_with, can_share_with = [], []
     if current_user()["role"] == "patient":
         shared_with = _doctors_shared_with(record)
@@ -277,23 +240,7 @@ def view_record(record_id):
 
 
 # ================================ Sharing ================================
-#
-# A patient decides which doctors can read each of their records. Sharing
-# adds a row to record_shares; revoking deletes it. can_view() checks that
-# table on every request, so access starts and stops immediately.
-#
-# WHY SHARING DOESN'T RE-ENCRYPT ANYTHING
-# The server holds the master key and decrypts records for whoever
-# can_view() allows, so sharing is an access-control decision, not a new
-# encryption. That keeps revoking instant and reliable: there's no copy of
-# the key handed out that we'd need to take back. (A stronger design gives
-# each user their own key pair and wraps the record key for each doctor,
-# so even the server can't read records. We'd note that as future work.)
-#
-# Only the patient the record is about can share or revoke it. Not the
-# doctor who wrote it, and not a doctor it was shared with: a doctor
-# can't pass a patient's record on to colleagues without the patient's
-# say-so.
+
 
 def _get_own_record_or_404(record_id):
     """Load a record that belongs to the logged-in patient, or stop with 404."""
@@ -356,8 +303,7 @@ def share_record(record_id):
         flash(f"{doctor['full_name']} wrote this record, so they already have access.", "error")
     else:
         db = get_db()
-        # OR IGNORE: sharing twice with the same doctor is harmless,
-        # the primary key (record_id, doctor_id) stops duplicates.
+ 
         db.execute(
             "INSERT OR IGNORE INTO record_shares (record_id, doctor_id) VALUES (?, ?)",
             (record["id"], doctor["id"]),

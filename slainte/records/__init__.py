@@ -1,17 +1,7 @@
 """
 Encrypted records: creating, viewing and sharing health records.
 
-Like auth/, this is a Flask blueprint that create_app() plugs into the
-main app. All pages live under /records.
-
-Every record is encrypted with slainte/crypto.py before it is saved, so
-the database only ever holds ciphertext. See crypto.py for the details.
-
-FOR THE REST OF THE GROUP:
-
-    from slainte.records import can_view
-
-    can_view(user, record_row)   # True if this user may read the record
+Sets up the blueprint for records and sends them to the routes.py file
 """
 
 from flask import Blueprint
