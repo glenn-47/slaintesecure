@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+
+{% block title %}Enter your code · Sláinte Secure{% endblock %}
+
+{% block content %}
+<section class="card">
+  <h1>Enter your code</h1>
+  <p>Your password was correct. Now enter the 6-digit code from your authenticator app.</p>
+
+  <form method="post" class="form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <label for="code">6-digit code</label>
+    {# inputmode="numeric" brings up the number keypad on phones, and
+       one-time-code lets browsers offer to fill it in. #}
+    <input id="code" name="code" class="code-input" type="text" inputmode="numeric"
+           pattern="[0-9 ]*" maxlength="7" autocomplete="one-time-code" autofocus required>
+
+    <button type="submit">Verify</button>
+  </form>
+
+  <p class="muted switch"><a href="{{ url_for('auth.login') }}">Start again</a></p>
+</section>
+{% endblock %}

@@ -33,6 +33,27 @@ CREATE TABLE IF NOT EXISTS users (
     created_at      TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Two-factor authentication (TOTP). One row per user who has set it up.
+-- A separate table, so accounts without 2FA simply have no row here.
+CREATE TABLE IF NOT EXISTS two_factor (
+    user_id           INTEGER PRIMARY KEY REFERENCES users(id),
+
+    -- The shared TOTP secret, encrypted with AES-256-GCM (nonce +
+    -- ciphertext). Unlike a password it can't be hashed, because the
+    -- server needs the real value to compute codes. See auth/totp.py.
+    encrypted_secret  BLOB    NOT NULL,
+
+    -- 0 while setup is in progress (QR shown but no code confirmed yet),
+    -- 1 once the user has proved their phone has the secret.
+    enabled           INTEGER NOT NULL DEFAULT 0 CHECK (enabled IN (0, 1)),
+
+    -- The 30-second time step of the last code accepted. A code from this
+    -- step or earlier is refused, so each code works only once.
+    last_used_step    INTEGER,
+
+    created_at        TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS records (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
     patient_id       INTEGER NOT NULL REFERENCES users(id),

@@ -51,6 +51,8 @@ ACTIONS = {
     "login_failed",
     "account_locked",
     "logout",
+    "two_factor_enabled",
+    "two_factor_disabled",
     "record_created",
     "record_viewed",
     "record_signed",

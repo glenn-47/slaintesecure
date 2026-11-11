@@ -15,6 +15,7 @@
         {% if current_user['role'] == 'admin' %}
           <a href="{{ url_for('audit.log_page') }}">Audit log</a>
         {% endif %}
+        <a href="{{ url_for('auth.security') }}">Security</a>
         {# Logout is a POST form with a CSRF token, not a plain link. #}
         <form class="inline-form" method="post" action="{{ url_for('auth.logout') }}">
           <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

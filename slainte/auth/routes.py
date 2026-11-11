@@ -1,4 +1,7 @@
-"""Web pages for accounts: registration, login, logout and the patient list."""
+"""Web pages for accounts: registration, login, logout and the patient list.
+
+The two-factor pages (second login step, setup) are in two_factor.py.
+"""
 
 import re
 import sqlite3
@@ -8,10 +11,10 @@ from flask import current_app, flash, redirect, render_template, request, sessio
 
 from ..db import get_db
 from ..audit.log import log_event
-from . import bp
+from . import bp, totp
 from .decorators import role_required
 from .passwords import hash_password, needs_rehash, password_problems, verify_password
-from .session import current_user, start_session
+from .session import current_user, start_session, start_two_factor_pending
 
 # 3-30 characters: letters, numbers, dots, underscores and hyphens only.
 USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9._-]{3,30}$")
@@ -173,11 +176,7 @@ def login():
             log_event("login_failed", user["id"], "wrong password")           
         return render_template("auth/login.html", username=username, next_page=next_page), 401
 
-    # --- Correct password: reset the counters and start the session. ---
-    db.execute(
-        "UPDATE users SET failed_logins = 0, locked_until = NULL WHERE id = ?",
-        (user["id"],),
-    )
+    # --- Correct password. ---
 
     # If the hash was made with weaker Argon2 settings than we use now,
     # upgrade it while we have the plain password (only possible at login).
@@ -186,6 +185,22 @@ def login():
             "UPDATE users SET password_hash = ? WHERE id = ?",
             (hash_password(password), user["id"]),
         )
+        db.commit()
+
+    # --- Two-factor authentication: the password alone isn't enough. ---
+    # Send them to enter their 6-digit code. Note what we DON'T do here:
+    # no session is started, and the failed-attempt counter is not reset.
+    # (If it were, an attacker who knew the password could re-enter it to
+    # get a fresh set of guesses at the code, over and over.)
+    if totp.is_enabled(user["id"]):
+        start_two_factor_pending(user["id"], next_page)
+        return redirect(url_for("auth.login_two_factor"))
+
+    # --- No 2FA on this account: reset the counters and start the session. ---
+    db.execute(
+        "UPDATE users SET failed_logins = 0, locked_until = NULL WHERE id = ?",
+        (user["id"],),
+    )
     db.commit()
 
     start_session(user["id"])

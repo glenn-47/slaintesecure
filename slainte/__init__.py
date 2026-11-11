@@ -39,6 +39,9 @@ def create_app():
         # and after this long in total, however active they are.
         SESSION_IDLE_MINUTES=15,
         SESSION_MAX_HOURS=8,
+        # Two-factor login: how long someone has to type their 6-digit code
+        # after getting their password right, before they must start again.
+        TWO_FACTOR_PENDING_MINUTES=5,
     )
 
     # Encrypted records: the master key that wraps every record's own key.
@@ -51,6 +54,11 @@ def create_app():
     from .audit.keys import load_or_create_audit_key
     app.config["AUDIT_HMAC_KEY"] = load_or_create_audit_key(app.instance_path)
 
+    # Two-factor authentication: the key that encrypts users' TOTP secrets.
+    # Its own key file, separate from the others (see auth/totp.py).
+    from .auth.totp import load_or_create_totp_key
+    app.config["TOTP_ENC_KEY"] = load_or_create_totp_key(app.instance_path)
+
     # Set up the SQLite database and create any missing tables.
     from . import db
     db.init_app(app)
@@ -59,7 +67,7 @@ def create_app():
     from . import csrf
     csrf.init_app(app)
 
-    # Accounts and access: registration, login, logout, roles.
+    # Accounts and access: registration, login, logout, roles, 2FA.
     from .auth import bp as auth_bp
     app.register_blueprint(auth_bp)
 

@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Set up two-factor authentication · Sláinte Secure{% endblock %}
+
+{% block content %}
+<section class="card">
+  <h1>Set up two-factor authentication</h1>
+
+  <ol class="steps">
+    <li>Open an authenticator app on your phone, such as Google Authenticator or
+        Microsoft Authenticator.</li>
+    <li>
+      {% if qr_svg %}
+        Scan this QR code with the app:
+        <div class="qr">{{ qr_svg }}</div>
+        <p class="hint">Can't scan it? Type this setup key into the app instead:</p>
+      {% else %}
+        Choose "Enter a setup key" in the app and type this key:
+      {% endif %}
+      <p class="setup-key">{{ setup_key }}</p>
+    </li>
+    <li>Enter the 6-digit code the app shows, to confirm it worked.</li>
+  </ol>
+
+  <form method="post" class="form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <label for="code">6-digit code</label>
+    <input id="code" name="code" class="code-input" type="text" inputmode="numeric"
+           pattern="[0-9 ]*" maxlength="7" autocomplete="one-time-code" required>
+
+    <button type="submit">Turn on</button>
+  </form>
+
+  <p class="muted switch"><a href="{{ url_for('auth.security') }}">Cancel</a></p>
+</section>
+{% endblock %}
