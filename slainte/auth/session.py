@@ -39,6 +39,25 @@ def start_session(user_id):
     session["last_seen"] = now
 
 
+def start_two_factor_pending(user_id, next_page):
+    """
+    Called after a correct password, for accounts with 2FA switched on.
+
+    The user is NOT logged in yet: there is no "user_id" in the session,
+    so every protected page still treats them as logged out. We only note
+    which account is half-way through logging in, and when. They get a
+    real session (start_session) only after their 6-digit code is checked.
+    Because Flask signs the cookie, this note can't be forged or edited to
+    skip the password step for someone else's account.
+    """
+    session.clear()
+    session["pending_2fa"] = {
+        "user_id": user_id,
+        "at": _now_iso(),
+        "next": next_page,
+    }
+
+
 @bp.before_app_request
 def load_logged_in_user():
     """Runs before every request in the app: sets g.user and checks timeouts."""

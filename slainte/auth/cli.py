@@ -1,5 +1,5 @@
 """
-Terminal command for creating staff accounts.
+Terminal commands for managing accounts.
 
 Doctors and admins can't sign up through the website (otherwise anyone
 could make themselves a doctor), so they're created from the terminal by
@@ -11,14 +11,21 @@ whoever runs the server:
 It asks for the username, full name and password. The password is hidden
 as you type and goes through the same rules and Argon2 hashing as the
 sign-up page.
+
+If someone loses the phone with their authenticator app, they can't log
+in to turn two-factor authentication off themselves, so it's reset from
+the terminal:
+
+    flask --app run reset-2fa USERNAME
 """
 
 import sqlite3
 
 import click
 
+from ..audit.log import log_event
 from ..db import get_db
-from . import bp
+from . import bp, totp
 from .passwords import hash_password, password_problems
 from .routes import USERNAME_PATTERN
 
@@ -60,3 +67,27 @@ def create_user_command(role):
         raise click.ClickException("That username is already taken.")
 
     click.echo(f"Created {role} account '{username}'.")
+
+
+@bp.cli.command("reset-2fa")
+@click.argument("username")
+def reset_two_factor_command(username):
+    """
+    Turn off two-factor authentication for USERNAME (e.g. a lost phone).
+
+    Only someone with access to the server can run this. A real system
+    would also give users one-time recovery codes when they set 2FA up.
+    """
+    user = get_db().execute(
+        "SELECT id FROM users WHERE username = ?", (username,)
+    ).fetchone()
+    if user is None:
+        raise click.ClickException(f"No user called '{username}'.")
+
+    if not totp.is_enabled(user["id"]):
+        click.echo(f"'{username}' doesn't have two-factor authentication on.")
+        return
+
+    totp.disable(user["id"])
+    log_event("two_factor_disabled", user["id"], "reset from the terminal")
+    click.echo(f"Two-factor authentication turned off for '{username}'.")

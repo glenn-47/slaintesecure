@@ -14,6 +14,7 @@ A secure health records app for our Security Fundamentals and Development CA. We
 - You get logged out after 15 minutes of doing nothing, or 8 hours in total
 - Doctors can write health records for patients, which are encrypted before they're saved
 - Patients can see their own records, and share each one with specific doctors (and take access away again)
+- Two-factor authentication: anyone can turn it on, and then logging in also needs a 6-digit code from an authenticator app
 
 ## Team
 
@@ -30,6 +31,7 @@ A secure health records app for our Security Fundamentals and Development CA. We
 - SQLite for the database
 - argon2-cffi for password hashing
 - cryptography for encrypting records (AES-256-GCM)
+- qrcode for the two-factor setup QR code
 
 ## Getting it running
 
@@ -88,6 +90,31 @@ flask --app run create-user --role admin
 ```
 
 It asks for a username, full name and password.
+
+Turn off two-factor authentication for someone who lost their phone:
+
+```bash
+flask --app run reset-2fa USERNAME
+```
+
+## Two-factor authentication
+
+Anyone can turn this on from the **Security** link at the top of the page. After
+that, logging in needs the password and a 6-digit code from an authenticator app
+(Google Authenticator, Microsoft Authenticator and so on), so a stolen password
+isn't enough on its own.
+
+- **TOTP (RFC 6238):** the app and the server share a secret. Each works out the
+  code from HMAC-SHA1 of the secret and the current 30-second time step. The code
+  is written out in `slainte/auth/totp.py` using Python's built-in `hmac` module
+  and checked against the test values in the RFC.
+- **The secret is encrypted, not hashed.** The server needs the real secret to work
+  out codes, so it's stored with AES-256-GCM. The key is in `instance/totp_key`,
+  which is never committed.
+- **Each code only works once**, so a code someone sees or captures can't be reused.
+- **Wrong codes count towards the lockout**, the same as wrong passwords, so the
+  million possible codes can't just be tried one by one.
+- **Turning it off needs the password again.**
 
 ## Encrypted records
 
@@ -174,9 +201,11 @@ slaintesecure/
     ├── auth/               # accounts and login
     │   ├── passwords.py    # Argon2 hashing and password rules
     │   ├── routes.py       # sign up, login, logout, patient list
+    │   ├── totp.py         # two-factor codes (TOTP) and the encrypted secret
+    │   ├── two_factor.py   # two-factor pages: setup, login step, turn off
     │   ├── session.py      # current_user() and session timeouts
     │   ├── decorators.py   # login_required and role_required
-    │   └── cli.py          # create-user command
+    │   └── cli.py          # create-user and reset-2fa commands
     ├── records/            # encrypted records
     │   ├── routes.py       # list, create, view, share and revoke
     │   └── access.py       # can_view(): who may read a record

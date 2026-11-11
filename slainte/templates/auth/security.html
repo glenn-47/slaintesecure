@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Security · Sláinte Secure{% endblock %}
+
+{% block content %}
+<section class="card">
+  <h1>Security</h1>
+
+  <h2 class="section-title">Two-factor authentication</h2>
+
+  {% if two_factor_on %}
+    <p><span class="status status-on">On</span> You'll be asked for a 6-digit code from your
+       authenticator app each time you log in.</p>
+
+    {# Turning it off needs the password, so someone at an unlocked
+       computer can't quietly remove the protection. #}
+    <form method="post" class="form" action="{{ url_for('auth.two_factor_disable') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <label for="password">Enter your password to turn it off</label>
+      <input id="password" name="password" type="password" maxlength="128"
+             autocomplete="current-password" required>
+
+      <button type="submit" class="button-off">Turn off</button>
+    </form>
+  {% else %}
+    <p><span class="status status-off">Off</span> Your account is protected by your password only.</p>
+    <p>With two-factor authentication, logging in also needs a code from your phone,
+       so a stolen password isn't enough to get into your account.</p>
+    <p><a class="button" href="{{ url_for('auth.two_factor_setup') }}">Set up</a></p>
+  {% endif %}
+</section>
+{% endblock %}
