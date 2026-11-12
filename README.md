@@ -15,6 +15,8 @@ A secure health records app for our Security Fundamentals and Development CA. We
 - Doctors can write health records for patients, which are encrypted before they're saved
 - Patients can see their own records, and share each one with specific doctors (and take access away again)
 - Two-factor authentication: anyone can turn it on, and then logging in also needs a 6-digit code from an authenticator app
+- Doctors digitally sign their records, and the signature is checked every time a record is opened
+- An audit log of logins, failed logins, record views and signings, which admins can check for tampering
 
 ## Team
 
@@ -30,7 +32,7 @@ A secure health records app for our Security Fundamentals and Development CA. We
 - Flask for the web pages
 - SQLite for the database
 - argon2-cffi for password hashing
-- cryptography for encrypting records (AES-256-GCM)
+- cryptography for encrypting records (AES-256-GCM) and signing them (Ed25519)
 - qrcode for the two-factor setup QR code
 
 ## Getting it running
@@ -97,6 +99,20 @@ Turn off two-factor authentication for someone who lost their phone:
 flask --app run reset-2fa USERNAME
 ```
 
+Run the checks on the record encryption:
+
+```bash
+python testCrypto.py
+```
+
+Simulate an attacker editing the database directly, to show the tampering being caught:
+
+```bash
+flask --app run audit tamper-log 2           # edit audit entry 2
+flask --app run audit tamper-signature 1     # change record 1's date
+flask --app run audit tamper-ciphertext 1    # flip one byte of record 1
+```
+
 ## Two-factor authentication
 
 Anyone can turn this on from the **Security** link at the top of the page. After
@@ -146,14 +162,7 @@ stops one doctor reading another doctor's patients by changing the number in the
 URL (IDOR). Anyone without access gets "Not Found", so they can't tell whether a
 record exists.
 
-Only the patient can share or revoke a record. Revoking works immediately. If you
-use the records in your own part:
-
-```python
-from slainte.records import can_view
-
-can_view(user, record)   # True if this user may read the record
-```
+Only the patient can share or revoke a record. Revoking works immediately.
 
 ## Integrity and audit
 
