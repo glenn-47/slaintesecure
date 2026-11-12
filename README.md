@@ -2,7 +2,7 @@
 
 A secure health records app for our Security Fundamentals and Development CA. We picked use case 7, Secure Healthcare Records. Patients and doctors can store and share records, and cryptography keeps them private and protected.
 
-## What works
+## Features
 
 - Patients can sign up for an account
 - Passwords are hashed with Argon2id (with a random salt for each one), so they're never stored as plain text
@@ -153,28 +153,6 @@ use the records in your own part:
 from slainte.records import can_view
 
 can_view(user, record)   # True if this user may read the record
-```
-
-## Finding out who's logged in
-
-To check who's logged in, use `current_user()`:
-
-```python
-from slainte.auth import current_user
-
-user = current_user()    # None if nobody's logged in
-user["id"], user["username"], user["full_name"], user["role"]
-```
-
-`role` is either `patient`, `doctor` or `admin`.
-
-To lock a page so only logged-in users, or only certain roles, can open it:
-
-```python
-from slainte.auth import login_required, role_required
-
-@login_required
-@role_required("doctor")
 ```
 
 ## Project layout
