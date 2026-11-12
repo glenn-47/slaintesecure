@@ -10,7 +10,7 @@ key. The key lives in the instance/ folder (gitignored, outside the
 database), so stealing or editing slainte.sqlite3 alone isn't enough to
 forge the log.
 
-Why not reuse RECORD_MASTER_KEY or SECRET_KEY? Key separation: each key
+Why not reuse RECORDMASTERKEY or SECRET_KEY? Key separation: each key
 does one job, so a leak or misuse of one doesn't weaken the others.
 
 IMPORTANT: if this file is lost or replaced, every existing log entry will
