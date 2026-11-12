@@ -155,12 +155,35 @@ from slainte.records import can_view
 can_view(user, record)   # True if this user may read the record
 ```
 
+## Integrity and audit
+
+Records can be signed by the doctor who wrote them, and everything that happens
+is written to a log that shows if it has been tampered with.
+
+- **Ed25519 signatures:** a doctor signs a record by re-entering their password.
+  The signature covers the record ID, patient, author, date and a SHA-256 hash of
+  the record's contents, so changing any of them makes the check fail.
+- **Private keys are stored encrypted** with the doctor's password, so only that
+  doctor can sign. This is what gives non-repudiation.
+- **The signature is checked every time a record is opened.** The page shows who
+  signed it, or a warning if the check fails.
+- **Hash-chained audit log:** each entry stores an HMAC-SHA256 hash of its own
+  fields plus the previous entry's hash, so editing or deleting an old entry
+  breaks the chain. The HMAC key is in `instance/audit_hmac.key`, which is never
+  committed, so someone with only the database can't recalculate the hashes.
+- **Verify chain:** admins can check the whole log from the **Audit log** page,
+  which shows the first entry where the chain breaks.
+- **The log holds IDs and event types only**, never medical data or passwords.
+
 ## Project layout
 
 ```
 slaintesecure/
 ├── run.py                  # starts the app
 ├── requirements.txt        # packages needed
+├── testCrypto.py           # checks on the record encryption
+├── docs/
+│   └── integrity-and-audit.md   # notes on signing and the audit log
 └── slainte/
     ├── __init__.py         # sets up the app
     ├── db.py               # database connection
@@ -178,6 +201,19 @@ slaintesecure/
     ├── records/            # encrypted records
     │   ├── routes.py       # list, create, view, share and revoke
     │   └── access.py       # can_view(): who may read a record
+    ├── audit/              # integrity and audit
+    │   ├── log.py          # hash-chained audit log and Verify chain
+    │   ├── keys.py         # the audit log's HMAC key
+    │   ├── signing.py      # Ed25519 signatures on records
+    │   ├── routes.py       # audit log page and sign record page
+    │   └── demo.py         # tamper demo commands
     ├── templates/          # HTML pages
-    └── static/             # CSS
+    │   ├── base.html       # layout shared by every page
+    │   ├── home.html
+    │   ├── auth/           # sign up, login, security, two-factor
+    │   ├── records/        # list, new and view
+    │   ├── audit/          # audit log, sign record, signature badge
+    │   └── errors/         # 400, 403 and 404 pages
+    └── static/
+        └── style.css
 ```
