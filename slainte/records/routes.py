@@ -3,41 +3,41 @@
 import json
 import re
 
-from cryptography.exceptions import InvalidTag #used to catch failures in integrity checks when records get decrypted. used by decrypt.record() function
-from flask import abort, current_app, flash, redirect, render_template, request, url_for #aborts when 404 error happens, get_records() function uses it for example
+from cryptography.exceptions import InvalidTag
+from flask import abort, current_app, flash, redirect, render_template, request, url_for
 
-from ..auth import current_user, role_required #checks roles of the user and if the user is logged in, mainly used by routes to check if the user has the correct role to access records.
-from ..crypto import open_record, seal_record #is used to encrypt records and decrypt records 
-from ..db import get_db #gets the dataabse connected and allows queries to the database to be made, used by viewed_records() function for example.
-from ..audit.log import log_event #gets the logs and records whatever happens in the app by the user and saves them in the database, used by view_record() function for example
-from . import bp #used to register the blueprints for records, all funtions use this import.
-from .access import can_view #checks if the user has permission to view the records
+from ..auth import current_user, role_required
+from ..crypto import open_record, seal_record
+from ..db import get_db
+from ..audit.log import log_event
+from . import bp
+from .access import can_view
 
-TITLE = 200 # max length of record title
-CONTENT = 10_000 #max length of record content
+TITLE_MAX = 200 # max length of record title
+CONTENT_MAX = 10_000 #max length of record content
 
 
-ID_PATTERN = re.compile(r"[0-9]{1,18}") #matches the records id patterns so the records get delivered to the correct user, parse_id() function uses it for example.
+ID_PATTERN = re.compile(r"[0-9]{1,18}")
 
 
 """ Helpers for parsing and validating record IDs. """
-def parse_id(value):
+def _parse_id(value):
     """Turn a form into an account ID, else return none"""
     if value is None or not ID_PATTERN.fullmatch(value):
         return None
     return int(value)
  
-def masterkey():
+def _master_key():
     """ masterkey for encrypted records"""
 
-    return current_app.config["RECORDMASTERKEY"]
+    return current_app.config["RECORD_MASTER_KEY"]
 
-def decrypt(record):
+def _decrypt(record):
     """ Decrypt records"""
 
     try:
         text = open_record(
-            masterkey(), record["encrypted_body"], record["wrapped_key"], record["id"]
+            _master_key(), record["encrypted_body"], record["wrapped_key"], record["id"]
         )
     except InvalidTag:
         current_app.logger.warning("Record %s failed its integrity check", record["id"])
@@ -45,7 +45,7 @@ def decrypt(record):
         return None
     return json.loads(text)
 
-def patient_query():
+def _patient_from_query():
     """ Get a patient from the query string"""
 
     username = request.args.get("patient", "").strip()
@@ -59,7 +59,7 @@ def patient_query():
         abort(404)
     return patient
 
-def viewed_records(record_id):
+def _get_viewable_record_or_404(record_id):
     """Get records for the user, or else none if the user has no records or the user is not logged in."""
     record = get_db().execute(
         "SELECT r.*, p.full_name AS patient_name, a.full_name AS author_name "
@@ -75,8 +75,8 @@ def viewed_records(record_id):
     return record
 
 
+# ============================== Record list ==============================
 
-"""LIST OF RECORDS"""
 @bp.route("/")
 @role_required("patient", "doctor")
 def list_records():
@@ -105,7 +105,7 @@ def list_records():
             (user["id"],),
         ).fetchall()
     else:
-        patient = patient_query()
+        patient = _patient_from_query()
         sql = (
             "SELECT r.*, p.full_name AS patient_name, a.full_name AS author_name "
             "FROM records r "
@@ -125,7 +125,7 @@ def list_records():
     for row in rows:
         if not can_view(user, row):
             continue
-        body = decrypt(row)
+        body = _decrypt(row)
         records.append({
             "id": row["id"],
             "title": body["title"] if body else None,
@@ -137,7 +137,8 @@ def list_records():
     return render_template("records/list.html", records=records, patient=patient)
 
 
-"""CREATE RECORDS"""
+# ============================= Create record =============================
+
 @bp.route("/new", methods=["GET", "POST"])
 @role_required("doctor")
 def new_record():
@@ -153,7 +154,7 @@ def new_record():
 
     if request.method == "GET":
        #pick a patient in the dropdown.
-        patient = patient_query()
+        patient = _patient_from_query()
         form = {"patient_id": str(patient["id"])} if patient else {}
         return render_template("records/new.html", patients=patients, form=form)
 
@@ -163,14 +164,14 @@ def new_record():
     patient_id = form.get("patient_id", "")
 
     errors = []
-    if not 1 <= len(title) <= TITLE:
-        errors.append(f"Please enter a title (up to {TITLE} characters).")
-    if not 1 <= len(content) <= CONTENT:
-        errors.append(f"Please enter the record (up to {CONTENT:,} characters).")
+    if not 1 <= len(title) <= TITLE_MAX:
+        errors.append(f"Please enter a title (up to {TITLE_MAX} characters).")
+    if not 1 <= len(content) <= CONTENT_MAX:
+        errors.append(f"Please enter the record (up to {CONTENT_MAX:,} characters).")
 
     
     patient = None
-    patient_id = parse_id(patient_id)
+    patient_id = _parse_id(patient_id)
     if patient_id is not None:
         patient = db.execute(
             "SELECT id FROM users WHERE id = ? AND role = 'patient'", (patient_id,)
@@ -191,7 +192,7 @@ def new_record():
     record_id = cursor.lastrowid
 
     plaintext = json.dumps({"title": title, "content": content})
-    encrypted_body, wrapped_key = seal_record(masterkey(), plaintext, record_id)
+    encrypted_body, wrapped_key = seal_record(_master_key(), plaintext, record_id)
 
     db.execute(
         "UPDATE records SET encrypted_body = ?, wrapped_key = ? WHERE id = ?",
@@ -204,14 +205,14 @@ def new_record():
     return redirect(url_for("records.view_record", record_id=record_id))
 
 
+# ============================== View record ==============================
 
-"""VIEW RECORDS"""
 @bp.route("/<int:record_id>")
 @role_required("patient", "doctor")
 def view_record(record_id):
     """Show one record, if the logged-in user is allowed to see it."""
-    record = viewed_records(record_id)
-    body = decrypt(record)
+    record = _get_viewable_record_or_404(record_id)
+    body = _decrypt(record)
 
     if body is None:
         flash(
@@ -226,8 +227,8 @@ def view_record(record_id):
     """ Patients can see who can see their records"""
     shared_with, can_share_with = [], []
     if current_user()["role"] == "patient":
-        shared_with = doctors_shared(record)
-        can_share_with = doctors_not_shared(record)
+        shared_with = _doctors_shared_with(record)
+        can_share_with = _doctors_not_yet_shared_with(record)
 
     return render_template(
         "records/view.html",
@@ -238,10 +239,10 @@ def view_record(record_id):
     )
 
 
-"""SHARING"""
+# ================================ Sharing ================================
 
 
-def get_records(record_id):
+def _get_own_record_or_404(record_id):
     """get recors that belong to the logged in patient, or recieve 404 error."""
     record = get_db().execute(
         "SELECT * FROM records WHERE id = ? AND patient_id = ?",
@@ -252,7 +253,7 @@ def get_records(record_id):
     return record
 
 
-def doctors_shared(record):
+def _doctors_shared_with(record):
     return get_db().execute(
         "SELECT u.id, u.full_name, u.username, s.granted_at "
         "FROM record_shares s JOIN users u ON u.id = s.doctor_id "
@@ -261,7 +262,7 @@ def doctors_shared(record):
     ).fetchall()
 
 
-def doctors_not_shared(record):
+def _doctors_not_yet_shared_with(record):
     """get doctors that didnt share records with patients yet."""
     return get_db().execute(
         "SELECT id, full_name, username FROM users "
@@ -272,14 +273,14 @@ def doctors_not_shared(record):
     ).fetchall()
 
 
-def doctor_id():
+def _doctor_id_from_form():
     """
     read the id of the doctor from the form, and return the doctor if the doctor exists
     in the database, or else it returns None.
 
     
     """
-    doctor_id = parse_id(request.form.get("doctor_id"))
+    doctor_id = _parse_id(request.form.get("doctor_id"))
     if doctor_id is None:
         return None
     doctor = get_db().execute(
@@ -293,8 +294,8 @@ def doctor_id():
 @role_required("patient")
 def share_record(record_id):
     """Patient gives access to a record to a doctor"""
-    record = get_records(record_id)
-    doctor = doctor_id()
+    record = _get_own_record_or_404(record_id)
+    doctor = _doctor_id_from_form()
 
     if doctor is None:
         flash("Please choose a doctor.", "error")
@@ -317,8 +318,8 @@ def share_record(record_id):
 @role_required("patient")
 def revoke_share(record_id):
     """patient revokes the access to a doctor from reading the patients records"""
-    record = get_records(record_id)
-    doctor = doctor_id()
+    record = _get_own_record_or_404(record_id)
+    doctor = _doctor_id_from_form()
 
     if doctor is not None:
         db = get_db()
