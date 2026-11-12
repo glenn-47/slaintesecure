@@ -35,17 +35,17 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE TABLE IF NOT EXISTS records (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
-    patient_id       INTEGER NOT NULL REFERENCES users(id),
-    author_id        INTEGER NOT NULL REFERENCES users(id),  -- the doctor
-    encrypted_body   BLOB    NOT NULL,   -- nonce + ciphertext (title and content)
-    wrapped_key      BLOB    NOT NULL,   -- this record's data key, encrypted
+    patient_id       INTEGER NOT NULL REFERENCES users(id),  --patient who gets the records
+    author_id        INTEGER NOT NULL REFERENCES users(id),  --the author of the records, in this case, the doctor
+    encrypted_body   BLOB    NOT NULL,   -- title and text get encrypted
+    wrapped_key      BLOB    NOT NULL,   -- the body gets wrapped in a key, the key is the encrypted with patients public key
     created_at       TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS record_shares (
-    record_id   INTEGER NOT NULL REFERENCES records(id),
-    doctor_id   INTEGER NOT NULL REFERENCES users(id),
-    granted_at  TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    record_id   INTEGER NOT NULL REFERENCES records(id),  --teh record that the patient shares with
+    doctor_id   INTEGER NOT NULL REFERENCES users(id),   --the doctor that receives the records from the patient
+    granted_at  TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP, -- when the patient allows accces to the doctor to the records
     PRIMARY KEY (record_id, doctor_id)
 );
 
