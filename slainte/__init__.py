@@ -46,11 +46,11 @@ def create_app():
 
     # Encrypted records: the master key that wraps every record's own key.
     # Kept in the instance folder, never in the database (see crypto.py).
-    from .crypto import load_or_create_master_key
-    app.config["RECORD_MASTER_KEY"] = load_or_create_master_key(app.instance_path)
+    from .crypto import create_masterkey
+    app.config["RECORDMASTERKEY"] = create_masterkey(app.instance_path)
 
     # Integrity and audit: the secret key for the audit log's HMAC chain.
-    # Separate from RECORD_MASTER_KEY so each key has one job (see audit/keys.py).
+    # Separate from RECORDMASTERKEY so each key has one job (see audit/keys.py).
     from .audit.keys import load_or_create_audit_key
     app.config["AUDIT_HMAC_KEY"] = load_or_create_audit_key(app.instance_path)
 

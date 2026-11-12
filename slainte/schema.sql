@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS records (
     patient_id       INTEGER NOT NULL REFERENCES users(id),  --patient who gets the records
     author_id        INTEGER NOT NULL REFERENCES users(id),  --the author of the records, in this case, the doctor
     encrypted_body   BLOB    NOT NULL,   -- title and text get encrypted
-    wrapped_key      BLOB    NOT NULL,   -- the body gets wrapped in a key, the key is the encrypted with patients public key
+    wrapped_key      BLOB    NOT NULL,   -- the body gets wrapped in a key, the key is the encrypted with a master key
     created_at       TEXT    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 

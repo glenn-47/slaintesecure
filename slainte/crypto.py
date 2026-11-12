@@ -36,7 +36,7 @@ NONCE_SIZE = 12  # 96 bits, the standard nonce size for GCM
 
 
 
-def load_or_create_master_key(instance_path):
+def create_masterkey(instance_path):
     """Get/create the master key"""
     key_path = os.path.join(instance_path, "record_key")
     if not os.path.exists(key_path):
@@ -52,7 +52,7 @@ def _encrypt(key, data, associated_data):
     return nonce + AESGCM(key).encrypt(nonce, data, associated_data)
 
 
-def _decrypt(key, blob, associated_data):
+def decrypt(key, blob, associated_data):
     """Decrypt the data"""
     nonce, ciphertext = blob[:NONCE_SIZE], blob[NONCE_SIZE:]
     return AESGCM(key).decrypt(nonce, ciphertext, associated_data)
@@ -76,5 +76,5 @@ def seal_record(master_key, plaintext, record_id):
 
 def open_record(master_key, encrypted_body, wrapped_key, record_id):
     """Decrypt a stored record back to plaintext"""
-    data_key = _decrypt(master_key, wrapped_key, _ad("key", record_id))
-    return _decrypt(data_key, encrypted_body, _ad("body", record_id)).decode("utf-8")
+    data_key = decrypt(master_key, wrapped_key, _ad("key", record_id))
+    return decrypt(data_key, encrypted_body, _ad("body", record_id)).decode("utf-8")

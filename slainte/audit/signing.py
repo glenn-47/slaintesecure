@@ -37,7 +37,7 @@ from .log import log_event
 def record_plaintext(record):
     """The decrypted record exactly as open_record returns it (raises InvalidTag if tampered)."""
     return open_record(
-        current_app.config["RECORD_MASTER_KEY"],
+        current_app.config["RECORDMASTERKEY"],
         record["encrypted_body"], record["wrapped_key"], record["id"],
     )
 
