@@ -27,12 +27,13 @@ def _parse_id(value):
         return None
     return int(value)
  
-""" masterkey for encrypted records"""
 def _master_key():
+    """ masterkey for encrypted records"""
+
     return current_app.config["RECORD_MASTER_KEY"]
 
-""" Decrypt records"""
 def _decrypt(record):
+    """ Decrypt records"""
 
     try:
         text = open_record(
@@ -44,9 +45,9 @@ def _decrypt(record):
         return None
     return json.loads(text)
 
-""" Get a patient from the query string"""
 def _patient_from_query():
-        
+    """ Get a patient from the query string"""
+
     username = request.args.get("patient", "").strip()
     if not username:
         return None
@@ -58,9 +59,8 @@ def _patient_from_query():
         abort(404)
     return patient
 
-"""Get records for the user, or else none if the user has no records or the user is not logged in."""
 def _get_viewable_record_or_404(record_id):
- 
+    """Get records for the user, or else none if the user has no records or the user is not logged in."""
     record = get_db().execute(
         "SELECT r.*, p.full_name AS patient_name, a.full_name AS author_name "
         "FROM records r "
@@ -243,7 +243,7 @@ def view_record(record_id):
 
 
 def _get_own_record_or_404(record_id):
-    """Load a record that belongs to the logged-in patient, or stop with 404."""
+    """get recors that belong to the logged in patient, or recieve 404 error."""
     record = get_db().execute(
         "SELECT * FROM records WHERE id = ? AND patient_id = ?",
         (record_id, current_user()["id"]),
@@ -263,7 +263,7 @@ def _doctors_shared_with(record):
 
 
 def _doctors_not_yet_shared_with(record):
-    """Doctors the patient could share with: not the author, not already shared."""
+    """get doctors that didnt share records with patients yet."""
     return get_db().execute(
         "SELECT id, full_name, username FROM users "
         "WHERE role = 'doctor' AND id != ? "
@@ -275,10 +275,10 @@ def _doctors_not_yet_shared_with(record):
 
 def _doctor_id_from_form():
     """
-    Read doctor_id from the form and check it's a real doctor account.
+    read the id of the doctor from the form, and return the doctor if the doctor exists
+    in the database, or else it returns None.
 
-    Never trust form values: someone could edit the page and send the ID
-    of a patient or admin, so we check the role in the database.
+    
     """
     doctor_id = _parse_id(request.form.get("doctor_id"))
     if doctor_id is None:
@@ -293,7 +293,7 @@ def _doctor_id_from_form():
 @bp.route("/<int:record_id>/share", methods=["POST"])
 @role_required("patient")
 def share_record(record_id):
-    """A patient gives one specific doctor access to one of their records."""
+    """Patient gives access to a record to a doctor"""
     record = _get_own_record_or_404(record_id)
     doctor = _doctor_id_from_form()
 
@@ -317,7 +317,7 @@ def share_record(record_id):
 @bp.route("/<int:record_id>/revoke", methods=["POST"])
 @role_required("patient")
 def revoke_share(record_id):
-    """A patient takes a doctor's access away again. Takes effect immediately."""
+    """patient revokes the access to a doctor from reading the patients records"""
     record = _get_own_record_or_404(record_id)
     doctor = _doctor_id_from_form()
 
