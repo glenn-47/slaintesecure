@@ -12,7 +12,10 @@
         <a class="button button-secondary" href="{{ url_for('auth.patients') }}">View patients</a>
       </p>
     {% elif current_user['role'] == 'admin' %}
-      <p><a class="button" href="{{ url_for('auth.patients') }}">View patients</a></p>
+      <p>
+        <a class="button" href="{{ url_for('audit.log_page') }}">Audit log</a>
+        <a class="button button-secondary" href="{{ url_for('auth.patients') }}">View patients</a>
+      </p>
     {% else %}
       <p><a class="button" href="{{ url_for('records.list_records') }}">My records</a></p>
     {% endif %}

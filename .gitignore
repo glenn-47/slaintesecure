@@ -7,7 +7,7 @@ env/
 __pycache__/
 *.pyc
 
-# Local app data: the database and session secret key. Never commit these.
+# Local app data: the database and session secret key.
 instance/
 *.db
 *.sqlite3

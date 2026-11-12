@@ -2,7 +2,11 @@
 
 {% block title %}Audit log{% endblock %}
 
+{# The log is a wide table, so this page uses the wider layout. #}
+{% block container_class %}container-wide{% endblock %}
+
 {% block content %}
+<section class="card">
 <h1>Audit log</h1>
 
 <p>
@@ -11,23 +15,25 @@
   entries can be detected.
 </p>
 
-<p><a href="{{ url_for('audit.log_page', verify=1) }}"><strong>Verify chain</strong></a></p>
+<p><a class="button" href="{{ url_for('audit.log_page', verify=1) }}">Verify chain</a></p>
 
 {% if result %}
   {% if result.ok %}
-    <p role="status" style="padding:0.75em; border:2px solid green; background:#e8f5e9;">
+    <p role="status" class="notice notice-ok">
       ✓ {{ result.reason }}
     </p>
   {% else %}
-    <p role="alert" style="padding:0.75em; border:2px solid #c62828; background:#ffebee;">
+    <p role="alert" class="notice notice-bad">
       ✗ <strong>Tampering detected.</strong> {{ result.reason }}
     </p>
   {% endif %}
 {% endif %}
 
 {% if entries %}
-  <p>Showing the newest {{ entries|length }} entries (up to {{ limit }}).</p>
-  <table>
+  <p class="muted">Showing the newest {{ entries|length }} entries (up to {{ limit }}).</p>
+  {# The wrapper lets the table scroll sideways on a narrow screen. #}
+  <div class="table-scroll">
+  <table class="table table-compact">
     <thead>
       <tr>
         <th>#</th><th>Time (UTC)</th><th>User</th><th>Action</th><th>Details</th><th>Hash</th>
@@ -36,9 +42,10 @@
     <tbody>
       {% for e in entries %}
         {# Highlight the first broken entry, if verification found one. #}
-        <tr {% if result and result.broken_at == e.id %}style="background:#ffebee; font-weight:bold;"{% endif %}>
+        <tr {% if result and result.broken_at == e.id %}class="row-broken"{% endif %}>
           <td>{{ e.id }}</td>
-          <td>{{ e.timestamp }}</td>
+          {# Stored as 2026-11-12T12:16:29+00:00; shown as 2026-11-12 12:16:29. #}
+          <td class="nowrap">{{ e.timestamp[:19]|replace("T", " ") }}</td>
           <td>{{ e.username or "-" }}</td>
           <td>{{ e.action }}</td>
           <td>{{ e.details }}</td>
@@ -49,7 +56,9 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
 {% else %}
-  <p>No entries yet.</p>
+  <p class="muted">No entries yet.</p>
 {% endif %}
+</section>
 {% endblock %}

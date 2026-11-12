@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block title %}Something went wrong · Sláinte Secure{% endblock %}
+
+{% block content %}
+<section class="card">
+  <h1>That didn't go through</h1>
+  <p>The form couldn't be accepted. This usually happens when a page has been
+     open for a long time. Please go back, reload the page and try again.</p>
+  <p><a class="button" href="{{ url_for('home') }}">Back to home</a></p>
+</section>
+{% endblock %}

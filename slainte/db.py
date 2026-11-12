@@ -1,18 +1,6 @@
 """
-Database helpers for Sláinte Secure.
-
 We use SQLite, which is built into Python and keeps the whole database in
-one file (instance/slainte.sqlite3). Everyone in the group uses these
-helpers instead of opening their own connections.
-
-Usage inside a route:
-    from slainte.db import get_db
-    db = get_db()
-    user = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
-
-Always use "?" placeholders like above and never build SQL by gluing
-strings together. The placeholders stop SQL injection, because the
-values are sent separately from the SQL and can't change its meaning.
+one file (instance/slainte.sqlite3).
 """
 
 import sqlite3
@@ -25,7 +13,7 @@ def get_db():
     """
     Return the database connection for the current request.
 
-    Flask's `g` object lives for one request, so the connection is opened
+    Flask's g object lives for one request, so the connection is opened
     the first time it's needed and reused for the rest of that request.
     """
     if "db" not in g:
@@ -54,12 +42,7 @@ def init_db():
 
 @click.command("reset-db")
 def reset_db_command():
-    """
-    Delete ALL data and rebuild the database from schema.sql.
-
-    Useful while developing, e.g. after someone changes a table in
-    schema.sql. Run with:  flask --app run reset-db
-    """
+    """Delete all data and rebuild the database from schema.sql."""
     db = get_db()
     tables = db.execute(
         "SELECT name FROM sqlite_master "

@@ -1,18 +1,6 @@
 """
 Access control: decorators that protect pages.
 
-Put one of these above a route to control who can open it:
-
-    from slainte.auth import login_required, role_required
-
-    @bp.route("/my-records")
-    @login_required                      # any logged-in user
-    def my_records(): ...
-
-    @bp.route("/patients")
-    @role_required("doctor", "admin")    # only these roles
-    def patients(): ...
-
 The check runs on the server for every request, so hiding a link or
 button in the page is never the only protection. Typing the URL directly
 still gets blocked.
@@ -46,9 +34,8 @@ def role_required(*allowed_roles):
     """
     Only allow logged-in users whose role is in allowed_roles.
 
-    Logged-in users with the wrong role get a 403 Forbidden page. This is
-    the principle of least privilege: each role can only reach what it
-    needs, e.g. a patient can never open the doctors' patient list.
+    Logged-in users with the wrong role get a 403 Forbidden page.
+    Each role can only reach what it needs.
     """
 
     def decorator(view):

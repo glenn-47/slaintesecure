@@ -1,7 +1,4 @@
-"""Web pages for accounts: registration, login, logout and the patient list.
-
-The two-factor pages (second login step, setup) are in two_factor.py.
-"""
+"""Web pages for accounts - registration, login, logout and the patient list."""
 
 import re
 import sqlite3
@@ -23,7 +20,7 @@ USERNAME_PATTERN = re.compile(r"^[A-Za-z0-9._-]{3,30}$")
 # When someone tries to log in with a username that doesn't exist, we still
 # check their password against this, so the response takes just as long as
 # for a real account. Otherwise an attacker could tell which usernames exist
-# by timing the replies ("timing attack" / username enumeration).
+# by timing the replies (timing attack / username enumeration).
 _DUMMY_HASH = hash_password("not-a-real-password-just-for-timing")
 
 
@@ -35,8 +32,8 @@ def register():
     Show the registration form, and create the account when it's submitted.
 
     Anyone can register, but only as a PATIENT. Letting people pick
-    "doctor" here would let anyone give themselves access to other
-    patients' records. Doctor accounts will be created by an admin.
+    doctor here would let anyone give themselves access to other
+    patients records. Doctor accounts will be created by an admin.
     """
     if current_user():
         return redirect(url_for("home"))
@@ -76,7 +73,7 @@ def register():
         )
         db.commit()
     except sqlite3.IntegrityError:
-        # The UNIQUE rule on username caught a duplicate.
+        # The UNIQUE rule on username for duplication.
         flash("That username is already taken.", "error")
         return render_template("auth/register.html", form=form), 400
 
@@ -91,18 +88,18 @@ def login():
     """
     Log a user in, locking the account after too many wrong passwords.
 
-    Security measures here:
+    Security info:
       - Same error for "no such user" and "wrong password", so attackers
         can't use the form to discover which usernames exist.
       - Account lockout after LOGIN_MAX_ATTEMPTS failures in a row, to stop
         brute-force password guessing.
       - The session is cleared and rebuilt on login (prevents session
-        fixation: an attacker planting a session before you log in).
+        fixation which is an attacker planting a session before log in).
     """
     if current_user():
         return redirect(url_for("home"))
 
-    # Where to go after logging in, e.g. the page that asked them to log in.
+    # Where to go after logging in.
     next_page = request.values.get("next", "")
 
     if request.method == "GET":
@@ -120,7 +117,7 @@ def login():
 
     generic_error = "Incorrect username or password."
 
-    # --- Unknown username: do the same work as a real check, then fail. ---
+    # --- Unknown username, do the same work as a real check, then fail. ---
     if user is None:
         verify_password(_DUMMY_HASH, password)
         log_event("login_failed", None, "unknown account")
@@ -129,15 +126,15 @@ def login():
 
     now = datetime.now(timezone.utc)
 
-    # --- Locked account: refuse without even checking the password, ---
-    # --- so an attacker can't keep guessing during the lockout.      ---
+    # --- Locked account, refuse without even checking the password ---
+    # --- This stops an attacker guessing during a lockout      ---
     if user["locked_until"]:
         locked_until = datetime.fromisoformat(user["locked_until"])
         if now < locked_until:
             minutes_left = int((locked_until - now).total_seconds() // 60) + 1
             log_event("login_failed", user["id"], "account is locked")
-            # This does reveal the account exists, a deliberate trade-off:
-            # a genuine user needs to know why they can't log in.
+            # This reveals the account exists, a genuine user
+            # needs to know why they can't log in.
             flash(
                 f"Too many failed attempts. This account is locked for "
                 f"{minutes_left} more minute(s).",
@@ -145,7 +142,7 @@ def login():
             )
             return render_template("auth/login.html", username=username, next_page=next_page), 403
 
-    # --- Wrong password: count it, and lock the account if needed. ---
+    # --- Wrong password, counts it, and locks the account if needed. ---
     if not verify_password(user["password_hash"], password):
         failures = user["failed_logins"] + 1
         max_attempts = current_app.config["LOGIN_MAX_ATTEMPTS"]
@@ -176,10 +173,10 @@ def login():
             log_event("login_failed", user["id"], "wrong password")           
         return render_template("auth/login.html", username=username, next_page=next_page), 401
 
-    # --- Correct password. ---
+    # --- Correct password ---
 
-    # If the hash was made with weaker Argon2 settings than we use now,
-    # upgrade it while we have the plain password (only possible at login).
+    # If the hash was made with weaker Argon2 settings,
+    # upgrade it while we have the plain password (only possible at login)
     if needs_rehash(user["password_hash"]):
         db.execute(
             "UPDATE users SET password_hash = ? WHERE id = ?",
@@ -187,16 +184,15 @@ def login():
         )
         db.commit()
 
-    # --- Two-factor authentication: the password alone isn't enough. ---
-    # Send them to enter their 6-digit code. Note what we DON'T do here:
-    # no session is started, and the failed-attempt counter is not reset.
-    # (If it were, an attacker who knew the password could re-enter it to
-    # get a fresh set of guesses at the code, over and over.)
+    # --- Two-factor authentication ---
+    # Send the user to enter their 6-digit code.
+    # No session is started, and the failed attempt counter is not reset.
+    # (Stops attacker from re-entering it over and over)
     if totp.is_enabled(user["id"]):
         start_two_factor_pending(user["id"], next_page)
         return redirect(url_for("auth.login_two_factor"))
 
-    # --- No 2FA on this account: reset the counters and start the session. ---
+    # --- No 2FA on this account, reset the counters and starts the session. ---
     db.execute(
         "UPDATE users SET failed_logins = 0, locked_until = NULL WHERE id = ?",
         (user["id"],),
@@ -212,15 +208,15 @@ def login():
 
 def _safe_next_page(next_page):
     """
-    Return next_page if it's a page on THIS site, otherwise the home page.
+    Return next_page if it's a page on this site, otherwise the home page.
 
     Without this check, an attacker could send someone a link like
-    /auth/login?next=https://evil.example and, after a genuine login on our
+    /auth/login?next=https://youhavebeenhacked.example and, after a genuine login on our
     site, the user would land on the attacker's fake copy of it. This is
-    called an "open redirect". We only accept paths starting with a single
-    "/". "//evil.example" would lead off-site, and so would "/\\evil.example"
-    because browsers treat a backslash like a forward slash, so both are
-    rejected.
+    called an open redirect. We only accept paths starting with a single
+    "/". "//youhavebeenhacked.example" would lead off-site, and so would
+    "/\\youhavebeenhacked.example" because browsers treat a backslash
+    like a forward slash, so both are rejected.
     """
     if next_page.startswith("/") and not next_page.startswith("//") and "\\" not in next_page:
         return next_page
@@ -231,9 +227,9 @@ def _safe_next_page(next_page):
 
 @bp.route("/logout", methods=["POST"])
 def logout():
-    user = current_user()          # NEW: who it was, before the session is cleared
+    user = current_user()          # who it was, before the session is cleared
     session.clear()
-    if user:                       # NEW: None if their session had already expired
+    if user:                       # none if their session had already expired
         log_event("logout", user["id"])
     flash("You have been logged out.", "success")
     return redirect(url_for("home"))

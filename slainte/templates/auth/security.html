@@ -13,7 +13,7 @@
        authenticator app each time you log in.</p>
 
     {# Turning it off needs the password, so someone at an unlocked
-       computer can't quietly remove the protection. #}
+       device can't quietly remove the protection. #}
     <form method="post" class="form" action="{{ url_for('auth.two_factor_disable') }}">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 

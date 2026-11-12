@@ -1,8 +1,4 @@
 -- Sláinte Secure database schema.
---
--- "IF NOT EXISTS" means this file can run every time the app starts
--- without wiping data: tables are only created if they're missing.
--- Each part of the project adds its own tables to this file.
 
 
 -- ===================== Accounts and access =====================
@@ -10,14 +6,13 @@
 CREATE TABLE IF NOT EXISTS users (
     id              INTEGER PRIMARY KEY AUTOINCREMENT,
 
-    -- COLLATE NOCASE makes "Glenn" and "glenn" count as the same
-    -- username, so nobody can register a look-alike account.
+    -- COLLATE NOCASE so "Glenn" and "glenn" count as the same username
     username        TEXT    NOT NULL UNIQUE COLLATE NOCASE,
     full_name       TEXT    NOT NULL,
 
     -- The Argon2id hash of the password, never the password itself.
     -- There's no separate salt column: Argon2 stores the random salt
-    -- and its settings inside this one string, e.g.
+    -- and its settings inside this one string, example:
     -- $argon2id$v=19$m=65536,t=3,p=4$<salt>$<hash>
     password_hash   TEXT    NOT NULL,
 
@@ -40,7 +35,7 @@ CREATE TABLE IF NOT EXISTS two_factor (
 
     -- The shared TOTP secret, encrypted with AES-256-GCM (nonce +
     -- ciphertext). Unlike a password it can't be hashed, because the
-    -- server needs the real value to compute codes. See auth/totp.py.
+    -- server needs the real value to compute codes
     encrypted_secret  BLOB    NOT NULL,
 
     -- 0 while setup is in progress (QR shown but no code confirmed yet),

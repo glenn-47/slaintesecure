@@ -3,10 +3,10 @@ Web pages for two-factor authentication (2FA).
 
   /auth/security      see whether 2FA is on, turn it on or off
   /auth/2fa/setup     scan the QR code and confirm a first code
-  /auth/2fa/disable   turn 2FA off (needs the password)
+  /auth/2fa/disable   turn 2FA off
   /auth/login/2fa     the second login step: enter the 6-digit code
 
-The codes themselves are worked out in totp.py; this file is the pages.
+The codes themselves are worked out in totp.py - this file is the pages used.
 
 2FA is opt-in per account. In a real hospital system it would be
 mandatory for staff, since doctors and admins can reach the most data.
@@ -54,7 +54,7 @@ def login_two_factor():
     Step two of logging in: the 6-digit code from the authenticator app.
 
     Wrong codes count towards the same lockout as wrong passwords. There
-    are only a million possible codes, so without a limit an attacker who
+    are only about a million possible codes, so without a limit an attacker who
     already has the password could simply try them all. And the failed
     counter is only reset once BOTH steps succeed, so getting the password
     right again doesn't hand out a fresh set of guesses.
@@ -74,7 +74,7 @@ def login_two_factor():
         session.pop("pending_2fa", None)
         return redirect(url_for("auth.login"))
 
-    # If the account has been locked since the password step (e.g. by wrong
+    # If the account has been locked since the password step (by wrong
     # codes typed in another browser), stop here too. Otherwise an attacker
     # could keep several half-finished logins open and carry on guessing.
     now = datetime.now(timezone.utc)
@@ -176,15 +176,12 @@ def two_factor_setup():
 
     response = make_response(render_template(
         "auth/two_factor_setup.html",
-        # Markup() marks the SVG as safe to put in the page as-is. That's
-        # fine here because our own code generated it; nothing in it comes
-        # from user input.
+        # Markup() marks the SVG as safe to put in the page as-is.
         qr_svg=Markup(qr_svg) if qr_svg else None,
-        # Shown in groups of four so it's easier to type by hand.
         setup_key=" ".join(key[i:i + 4] for i in range(0, len(key), 4)),
     ), status)
     # This page shows the secret, so tell the browser never to keep a copy
-    # (otherwise it could be read back later from the cache or Back button).
+    # (otherwise it could be read back later from the cache or prev button).
     response.headers["Cache-Control"] = "no-store"
     return response
 
@@ -197,8 +194,8 @@ def two_factor_disable():
     """
     Turn 2FA off. Needs the account password again.
 
-    Without that check, anyone who got hold of a logged-in session (e.g.
-    an unlocked computer on a ward) could quietly remove the protection.
+    Without that check, anyone who got hold of a logged-in session
+    could quietly remove the protection.
     """
     user = current_user()
     password_hash = get_db().execute(

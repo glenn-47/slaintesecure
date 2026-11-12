@@ -72,12 +72,7 @@ def create_user_command(role):
 @bp.cli.command("reset-2fa")
 @click.argument("username")
 def reset_two_factor_command(username):
-    """
-    Turn off two-factor authentication for USERNAME (e.g. a lost phone).
-
-    Only someone with access to the server can run this. A real system
-    would also give users one-time recovery codes when they set 2FA up.
-    """
+    """Turn off two-factor authentication for USERNAME."""
     user = get_db().execute(
         "SELECT id FROM users WHERE username = ?", (username,)
     ).fetchone()

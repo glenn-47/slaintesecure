@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}Sláinte Secure{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%231f8a8a'/%3E%3Cpath d='M13 7h6v6h6v6h-6v6h-6v-6H7v-6h6z' fill='%23fff'/%3E%3C/svg%3E">
 </head>
 <body>
   <header class="topbar">
@@ -12,7 +13,16 @@
     <nav>
       {% if current_user %}
         <span class="whoami">{{ current_user['username'] }} · {{ current_user['role'] }}</span>
-        {% if current_user['role'] == 'admin' %}
+        {# Each role only sees links to pages it can open.
+           The real check is on the server in role_required
+           so typing the address still gets blocked. #}
+        {% if current_user['role'] == 'patient' %}
+          <a href="{{ url_for('records.list_records') }}">My records</a>
+        {% elif current_user['role'] == 'doctor' %}
+          <a href="{{ url_for('records.list_records') }}">Records</a>
+          <a href="{{ url_for('auth.patients') }}">Patients</a>
+        {% elif current_user['role'] == 'admin' %}
+          <a href="{{ url_for('auth.patients') }}">Patients</a>
           <a href="{{ url_for('audit.log_page') }}">Audit log</a>
         {% endif %}
         <a href="{{ url_for('auth.security') }}">Security</a>
@@ -28,7 +38,7 @@
     </nav>
   </header>
 
-  <main class="container">
+  <main class="container {% block container_class %}{% endblock %}">
     {# Messages from flash() in the routes: errors, confirmations, etc. #}
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% for category, message in messages %}
@@ -38,5 +48,7 @@
 
     {% block content %}{% endblock %}
   </main>
+
+  <footer class="footer">Sláinte Secure · Healthcare Records</footer>
 </body>
 </html>

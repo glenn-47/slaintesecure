@@ -16,7 +16,7 @@
           <tr>
             <td>
               {# Doctors can click through to this patient's records. That page only
-                 shows records the doctor already has access to (see records/routes.py). #}
+                 shows records the doctor already has access to. #}
               {% if current_user['role'] == 'doctor' %}
                 <a href="{{ url_for('records.list_records', patient=patient['username']) }}">{{ patient['full_name'] }}</a>
               {% else %}

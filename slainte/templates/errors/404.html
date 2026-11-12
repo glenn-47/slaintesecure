@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+
+{% block title %}Page not found · Sláinte Secure{% endblock %}
+
+{% block content %}
+<section class="card">
+  <h1>Page not found</h1>
+  <p>That page doesn't exist, or it isn't available to your account.</p>
+  <p><a class="button" href="{{ url_for('home') }}">Back to home</a></p>
+</section>
+{% endblock %}

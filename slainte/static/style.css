@@ -1,4 +1,4 @@
-/* Sláinte Secure: simple shared styles */
+/* Sláinte Secure - Styling */
 
 :root {
   --ink: #13232f;
@@ -295,4 +295,77 @@ button:hover,
 .flash-info {
   background: #e6eef5;
   color: #1f4466;
+}
+
+/* Wider page for big tables (the audit log). */
+.container-wide { max-width: 1040px; }
+
+/* Lets a wide table scroll sideways on a small screen instead of
+   stretching the page. */
+.table-scroll { overflow-x: auto; }
+
+.table-compact th,
+.table-compact td {
+  padding: 8px 10px;
+  font-size: 0.92rem;
+}
+
+.table-compact code { font-size: 0.82rem; }
+
+.nowrap { white-space: nowrap; }
+
+/* The first audit entry that fails verification. */
+.row-broken {
+  background: #fde8e4;
+  font-weight: 700;
+}
+
+/* Top bar links wrap neatly on a narrow screen. */
+.topbar nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  row-gap: 4px;
+}
+
+.footer {
+  max-width: 760px;
+  margin: 0 auto 32px;
+  padding: 0 16px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  text-align: center;
+}
+
+/* Result banners - a signature check or an audit chain check. */
+.notice {
+  padding: 12px 16px;
+  border-radius: 6px;
+  border-left: 5px solid;
+}
+
+.notice-ok {
+  background: #dff3ee;
+  border-color: #1f8a6a;
+  color: #145c4a;
+}
+
+.notice-bad {
+  background: #fde8e4;
+  border-color: #b33a1f;
+  color: #8a2a14;
+}
+
+.sign-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.button-small {
+  margin-top: 0;
+  padding: 6px 14px;
+  font-size: 0.9rem;
 }

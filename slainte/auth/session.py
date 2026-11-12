@@ -1,15 +1,15 @@
 """
-Who is logged in, and for how long?
+Who is logged in, and for how long
 
 When someone logs in, we store only their user ID (plus two timestamps)
 in the session cookie. Flask signs that cookie with the app's secret key
 (HMAC-SHA1 via the itsdangerous library), so a user can't edit it to
-become someone else: any change breaks the signature and Flask throws the
+become someone else. Any change breaks the signature and Flask throws the
 cookie away.
 
 On every request we look the user up in the database again, rather than
 trusting details stored in the cookie. That way, if an account is changed
-(e.g. a role is removed or the account is locked), it takes effect on the
+(a role is removed or the account is locked), it takes effect on the
 very next page they load.
 
 SESSION TIMEOUTS
@@ -43,7 +43,7 @@ def start_two_factor_pending(user_id, next_page):
     """
     Called after a correct password, for accounts with 2FA switched on.
 
-    The user is NOT logged in yet: there is no "user_id" in the session,
+    The user is not logged in yet. There is no "user_id" in the session,
     so every protected page still treats them as logged out. We only note
     which account is half-way through logging in, and when. They get a
     real session (start_session) only after their 6-digit code is checked.
@@ -60,7 +60,7 @@ def start_two_factor_pending(user_id, next_page):
 
 @bp.before_app_request
 def load_logged_in_user():
-    """Runs before every request in the app: sets g.user and checks timeouts."""
+    """Runs before every request in the app, sets g.user and checks timeouts."""
     g.user = None
     user_id = session.get("user_id")
 
@@ -79,7 +79,7 @@ def load_logged_in_user():
     ).fetchone()
 
     if g.user is None:
-        # The account no longer exists (e.g. the database was reset).
+        # The account no longer exists (database reset).
         session.clear()
         return
 
@@ -93,7 +93,7 @@ def _session_expired():
         last_seen = datetime.fromisoformat(session["last_seen"])
         login_at = datetime.fromisoformat(session["login_at"])
     except (KeyError, ValueError):
-        # Missing or broken timestamps: treat the session as expired.
+        # Missing or broken timestamps - treat the session as expired.
         return True
 
     idle_limit = timedelta(minutes=current_app.config["SESSION_IDLE_MINUTES"])
@@ -107,16 +107,11 @@ def _now_iso():
 
 
 def current_user():
-    """
-    Return the logged-in user, or None if nobody is logged in.
-
-    The result works like a dictionary:
-        user["id"], user["username"], user["full_name"], user["role"]
-    """
+    """Return the logged-in user, or None if nobody is logged in."""
     return g.get("user")
 
 
 @bp.app_context_processor
 def inject_current_user():
-    """Make `current_user` available in every HTML template."""
+    """Make current_user available in every HTML template."""
     return {"current_user": current_user()}

@@ -1,17 +1,13 @@
 """
 CSRF protection for every form in the app.
 
-THE ATTACK: Cross-Site Request Forgery. A malicious website makes a
-logged-in user's browser secretly submit one of our forms (e.g. "share my
-records with this doctor"). The browser sends our session cookie along,
+ATTACK: Cross-Site Request Forgery. A malicious website makes a
+logged-in user's browser secretly submit one of the forms. The browser sends the session cookie along,
 so without protection the request would look genuine.
 
-THE DEFENCE: each session gets a secret random token. Every form we serve
+DEFENCE: each session gets a secret random token. Every form
 includes it in a hidden field, and every POST must send it back. Another
-website can't read our pages, so it can't know the token.
-
-Usage in any form template:
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+website can't read the pages, so it can't know the token.
 """
 
 import hmac

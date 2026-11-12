@@ -5,7 +5,7 @@ WHY 2FA?
 A password is "something you know". If it's stolen (phishing, malware,
 reuse on a breached site), the attacker has everything they need. In the
 2021 HSE attack, stolen admin passwords were enough to roam the network.
-2FA adds "something you have": a phone that shows a new 6-digit code every
+2FA adds an extra layer through an auth app which shows a new 6-digit code every
 30 seconds. A stolen password alone no longer logs anyone in.
 
 HOW TOTP WORKS (RFC 6238, built on HOTP, RFC 4226)
@@ -14,7 +14,7 @@ scanning a QR code. To make a code, each side independently computes:
 
     counter = current Unix time // 30         (same on both sides)
     mac     = HMAC-SHA1(secret, counter)      (20 bytes)
-    code    = 6 digits taken from the mac     ("dynamic truncation")
+    code    = 6 digits taken from the mac     (dynamic truncation)
 
 Nothing is sent between them at login except the 6 digits the user types.
 Because HMAC is one-way, seeing old codes doesn't reveal the secret or
@@ -61,7 +61,7 @@ NONCE_SIZE = 12             # standard AES-GCM nonce size
 
 # Accept the code from one step before or after the current one, to allow
 # for a phone clock that's slightly off or a code typed just as it changed.
-# RFC 6238 recommends at most one step of leeway.
+# RFC 6238 recommends at most one step of leeway between.
 WINDOW = 1
 
 
@@ -72,17 +72,16 @@ def _hotp(secret, counter):
     # The counter is hashed as an 8-byte big-endian number.
     mac = hmac.new(secret, struct.pack(">Q", counter), hashlib.sha1).digest()
 
-    # Dynamic truncation: the last 4 bits of the MAC pick where to read
-    # 4 bytes from; the top bit is dropped to avoid signed-number issues.
+    # Dynamic truncation - the last 4 bits of the MAC pick where to read
+    # 4 bytes from the top bit is dropped to avoid signed-number issues.
     offset = mac[-1] & 0x0F
     number = struct.unpack(">I", mac[offset:offset + 4])[0] & 0x7FFFFFFF
 
-    # Keep the last 6 digits, padded with zeros (e.g. 7 -> "000007").
     return str(number % 10 ** DIGITS).zfill(DIGITS)
 
 
 def time_step(at=None):
-    """Which 30-second step a moment falls in (now, by default)."""
+    """Which 30-second step a moment falls in."""
     return int(time.time() if at is None else at) // PERIOD
 
 
@@ -91,7 +90,7 @@ def matching_step(secret, code, at=None):
     Return the time step whose code matches, or None if the code is wrong.
 
     Returning the step (not just True/False) lets the caller remember it
-    and refuse the same code a second time (see verify_user_code).
+    and refuse the same code a second time.
     """
     code = code.replace(" ", "")
     if len(code) != DIGITS or not code.isdigit():
@@ -132,8 +131,7 @@ def provisioning_uri(secret, username):
 
 def qr_code_svg(uri):
     """
-    The QR code as an SVG image to put in the page, or None if the qrcode
-    package isn't installed (the page then shows the setup key to type in).
+    The QR code as an SVG image to put in the page.
 
     The image is generated on our own server. The secret must never be
     sent to an online QR-code service, which would then know it.
@@ -157,7 +155,7 @@ def load_or_create_totp_key(instance_path):
     The AES key that encrypts every user's TOTP secret.
 
     It has its own key file rather than reusing the session key or the
-    records master key (key separation: each key does one job, so a leak
+    records master key (key separation so each key does one job, a leak
     of one doesn't expose the others).
     """
     key_path = os.path.join(instance_path, "totp_key")
@@ -170,7 +168,7 @@ def load_or_create_totp_key(instance_path):
 
 def _associated_data(user_id):
     # Binds each encrypted secret to its owner. Someone with database
-    # access can't copy their own (known) secret into another user's row:
+    # access can't copy their own secret into another user's row:
     # decryption would fail because the user ID no longer matches.
     return f"slainte:totp:{user_id}".encode()
 
@@ -232,14 +230,14 @@ def verify_user_code(user_id, code, activate=False):
     """
     Check a 6-digit code for a user. Returns True or False.
 
-    With activate=True, it checks a setup in progress and, if the code is
-    right, switches 2FA on. That first code proves the user's phone really
-    has the secret before we start demanding codes at login.
+    With activate=True, it checks a setup in progress and if the code is
+    right, switches 2FA on. The first code proves the user's phone really
+    has the secret before we start requiring codes at login.
 
-    Each code works only once: we store the time step of the last code
+    Each code works only once, we store the time step of the last code
     accepted and refuse that step or anything older. Otherwise someone who
     saw a code being typed (or captured it) could reuse it within its 30
-    to 90 seconds of validity. This is a "replay attack".
+    to 90 seconds of validity. This is a replay attack.
     """
     db = get_db()
     row = db.execute(

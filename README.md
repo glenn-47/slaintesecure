@@ -2,7 +2,7 @@
 
 A secure health records app for our Security Fundamentals and Development CA. We picked use case 7, Secure Healthcare Records. Patients and doctors can store and share records, and cryptography keeps them private and protected.
 
-## What works so far
+## What works
 
 - Patients can sign up for an account
 - Passwords are hashed with Argon2id (with a random salt for each one), so they're never stored as plain text
@@ -101,7 +101,7 @@ flask --app run reset-2fa USERNAME
 
 Anyone can turn this on from the **Security** link at the top of the page. After
 that, logging in needs the password and a 6-digit code from an authenticator app
-(Google Authenticator, Microsoft Authenticator and so on), so a stolen password
+(Google Authenticator, Microsoft Authenticator etc), so a stolen password
 isn't enough on its own.
 
 - **TOTP (RFC 6238):** the app and the server share a secret. Each works out the
@@ -153,15 +153,6 @@ use the records in your own part:
 from slainte.records import can_view
 
 can_view(user, record)   # True if this user may read the record
-```
-
-## Adding a package
-
-Install it with your venv active, then add it to `requirements.txt` with the version number so everyone has the same one:
-
-```bash
-pip install <package>
-pip freeze | grep -i <package>
 ```
 
 ## Finding out who's logged in

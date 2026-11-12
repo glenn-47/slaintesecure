@@ -11,8 +11,6 @@
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
     <label for="code">6-digit code</label>
-    {# inputmode="numeric" brings up the number keypad on phones, and
-       one-time-code lets browsers offer to fill it in. #}
     <input id="code" name="code" class="code-input" type="text" inputmode="numeric"
            pattern="[0-9 ]*" maxlength="7" autocomplete="one-time-code" autofocus required>
 
