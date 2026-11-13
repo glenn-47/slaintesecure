@@ -1,13 +1,4 @@
-"""
-Tamper demo commands for the video. Each one simulates an attacker who has
-got hold of the database file and edits it directly, bypassing the app.
 
-    flask --app run audit tamper-log 2           edit audit entry 2
-    flask --app run audit tamper-signature 1     change record 1's date
-    flask --app run audit tamper-ciphertext 1    flip one byte of record 1
-
-Afterwards, reset with: flask --app run reset-db  (and delete instance/audit_anchor.json)
-"""
 
 import click
 
@@ -29,9 +20,9 @@ def tamper_log(entry_id):
 @click.argument("record_id", type=int)
 def tamper_signature(record_id):
     """
-    Change a signed record's date. The encryption still works (the date
-    isn't part of the AES-GCM check), but the signature covers the date,
-    so the signature check fails. That's why we sign more than the content.
+    Change a signed records date. The encryption still works (the date
+    isnt partof check) but the signature covers the date
+    so the signature check fails.
     """
     db = get_db()
     db.execute("UPDATE records SET created_at = '2020-01-01 00:00:00' WHERE id = ?", (record_id,))

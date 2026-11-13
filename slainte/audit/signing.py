@@ -1,21 +1,3 @@
-"""
-Digital signatures on records (non-repudiation).
-
-Ed25519 is a modern elliptic-curve signature scheme: small keys (32 bytes),
-fast, and with no random number needed at signing time, which removes a
-classic way signatures go wrong (ECDSA leaks the private key if it ever
-reuses a random value).
-
-A signature proves two things:
-  - integrity: the signed details haven't changed since signing
-  - non-repudiation: only the holder of the private key could have made
-    it. The private key is encrypted with the doctor's own password, and
-    they must re-enter it to sign, so the doctor can't later deny it.
-
-Known limitation (for the report): public keys are trusted from our own
-database. Real systems tie public keys to identities with certificates
-issued by a certificate authority.
-"""
 
 import hashlib
 import json
@@ -35,7 +17,7 @@ from .log import log_event
 
 
 def record_plaintext(record):
-    """The decrypted record exactly as open_record returns it (raises InvalidTag if tampered)."""
+    """InvalidTag if tampered"""
     return open_record(
         current_app.config["RECORD_MASTER_KEY"],
         record["encrypted_body"], record["wrapped_key"], record["id"],
@@ -43,16 +25,9 @@ def record_plaintext(record):
 
 
 def signed_message(record, plaintext):
-    """
-    The exact bytes that get signed.
 
-    We sign a hash of the plaintext string exactly as decrypted, never
-    re-serialised JSON, because re-serialising could change spacing or key
-    order and break the signature. The record's ID, patient, author and
-    date are included too, so a signature can't be moved onto a different
-    record or patient. "slainte-record-v1" labels what the signature is
-    for, so it can never be mistaken for a signature on anything else.
-    """
+    #The exact bytes that get signed
+
     digest = hashlib.sha256(plaintext.encode("utf-8")).hexdigest()
     return json.dumps(
         ["slainte-record-v1", record["id"], record["patient_id"],
@@ -63,9 +38,9 @@ def signed_message(record, plaintext):
 
 def create_key_pair(password):
     """
-    New Ed25519 key pair. The private key is encrypted with the doctor's
-    password using the library's strongest available password-based
-    encryption, so the database alone never reveals it.
+    The private key is encrypted with the docters
+    password using the librarys strongest available password based
+    encryption
     """
     private_key = Ed25519PrivateKey.generate()
     public_bytes = private_key.public_key().public_bytes(
@@ -80,15 +55,12 @@ def create_key_pair(password):
 
 
 def unlock_private_key(encrypted, password):
-    """Decrypt a stored private key. Raises ValueError if the password is wrong."""
+    #decrypt a stored private key.ValueError if the password is wrong
     return serialization.load_pem_private_key(encrypted, password=password.encode("utf-8"))
 
 
 def signature_status(record):
-    """
-    Check a record's signature. Used by signature_badge.html on every view.
-    Returns {"state": "unsigned" | "valid" | "invalid", ...}.
-    """
+    """Checks a records signature"""
     sig = get_db().execute(
         "SELECT s.*, u.full_name AS signer_name, k.public_key "
         "FROM record_signatures s "
@@ -102,7 +74,7 @@ def signature_status(record):
         return {"state": "unsigned"}
 
     ok = False
-    # The signer must be the record's author, and their key must exist.
+    # signer must be the records author and their key must exist
     if sig["public_key"] is not None and sig["doctor_id"] == record["author_id"]:
         try:
             Ed25519PublicKey.from_public_bytes(sig["public_key"]).verify(

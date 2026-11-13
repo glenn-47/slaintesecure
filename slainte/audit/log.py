@@ -1,32 +1,4 @@
-"""
-Tamper-evident audit log.
 
-Every entry stores an HMAC-SHA256 hash (entry_hash) computed over its own
-fields AND the previous entry's hash (prev_hash). The entries therefore
-form a chain:
-
-    entry 1: hash(fields1 + GENESIS)
-    entry 2: hash(fields2 + hash1)
-    entry 3: hash(fields3 + hash2) ...
-
-Editing an entry changes what its hash should be; deleting one leaves the
-next entry pointing at a hash that no longer exists. Either way, verifying
-the chain finds the first point where it breaks.
-
-Why HMAC and not plain SHA-256: with plain SHA-256 anyone with database
-access could edit an entry and recompute every hash after it. HMAC needs
-the secret key in instance/ (see keys.py), so only the app can produce
-valid hashes.
-
-RULES FOR CALLERS:
-  - Call log_event() AFTER your own db.commit(). It writes on its own
-    connection, and SQLite allows only one writer at a time: if your
-    connection still has uncommitted changes, log_event() waits for a
-    lock that will never be released.
-  - details holds IDs only (e.g. "record_id=12"). Never medical content,
-    never passwords, never a typed-in username from a failed login
-    (people sometimes type their password into the username box).
-"""
 
 import hashlib
 import hmac
@@ -40,12 +12,11 @@ from flask import current_app
 
 from ..db import get_db
 
-# prev_hash for the very first entry. Any fixed value works; 64 zeros is
-# the same length as a real SHA-256 hex digest.
+# prev_hash for the very first entry.
 GENESIS_HASH = "0" * 64
 
-# Every action the app is allowed to log. A typo like "login_fialed" raises
-# an error instead of quietly writing an entry nobody will ever search for.
+# This is all things app can log. A typo like "login_fialed" causes 
+# an error instead of just writing entry as i feel that less helpful.
 ACTIONS = {
     "login",
     "login_failed",
@@ -62,17 +33,10 @@ ACTIONS = {
 
 
 def compute_hash(key, timestamp, user_id, action, details, prev_hash):
+    """The fields r encoded as a json list rather than glued together as
+    strings. this keeps everything seprate so two things never given same hash
     """
-    HMAC-SHA256 over one entry's fields plus the previous entry's hash.
 
-    The fields are encoded as a JSON list rather than glued together as
-    strings. Gluing is ambiguous: ("ab", "c") and ("a", "bc") would both
-    become "abc" and get the same hash. A JSON list keeps the boundaries,
-    so different entries always give different input bytes.
-
-    verify_chain() uses this same function, so writing and checking can
-    never disagree about the format.
-    """
     message = json.dumps(
         [timestamp, user_id, action, details, prev_hash],
         separators=(",", ":"),
@@ -83,10 +47,8 @@ def compute_hash(key, timestamp, user_id, action, details, prev_hash):
 
 def _connect():
     """
-    A separate connection just for writing to the log (see RULES above).
-
-    isolation_level=None turns off Python's automatic transactions, so
-    log_event() controls exactly when its transaction starts and ends.
+    A seprate connection just for writing to the log.
+    log_event() controls when  transaction starts and ends.
     """
     conn = sqlite3.connect(
         current_app.config["DATABASE"], isolation_level=None, timeout=10
@@ -96,13 +58,11 @@ def _connect():
 
 
 def log_event(action, user_id=None, details=""):
-    """Add one entry to the end of the audit log chain."""
+    """adds 1 entry to the end of the audit log chain."""
     if action not in ACTIONS:
         raise ValueError(f"Unknown audit action: {action!r}")
 
-    # Normalise types BEFORE hashing. SQLite would store user_id "5" as the
-    # integer 5, so the hash must be computed over 5 too, or verify_chain()
-    # would later recompute a different hash and report false tampering.
+    # this stops false tampering alerts
     user_id = int(user_id) if user_id is not None else None
     details = str(details)
 
@@ -111,11 +71,8 @@ def log_event(action, user_id=None, details=""):
 
     conn = _connect()
     try:
-        # BEGIN IMMEDIATE takes the database's write lock BEFORE we read the
-        # last hash. Without it, two requests logging at the same moment
-        # could both read the same prev_hash and fork the chain into two
-        # branches. With it, log writes happen strictly one at a time.
-        conn.execute("BEGIN IMMEDIATE")
+        conn.execute("BEGIN IMMEDIATE") #takes the database write lock b4 we read the
+                                        #last hash.
 
         last = conn.execute(
             "SELECT entry_hash FROM audit_log ORDER BY id DESC LIMIT 1"
@@ -131,9 +88,7 @@ def log_event(action, user_id=None, details=""):
             (timestamp, user_id, action, details, prev_hash, entry_hash),
         )
         conn.execute("COMMIT")
-        # Only after the entry is safely committed: if we saved the anchor
-        # first and the commit failed, the anchor would point at an entry
-        # that never existed and verification would cry wolf.
+        # save anchor after commit 
         _write_anchor(cursor.lastrowid, entry_hash)
 
     except Exception:
@@ -143,24 +98,8 @@ def log_event(action, user_id=None, details=""):
     finally:
         conn.close()
 
-    # ---------------------------------------------------------------------------
-# Truncation anchor
-#
-# The hash chain catches edits, insertions and deletions in the MIDDLE of
-# the log, because the entry after the change no longer links up. But if an
-# attacker deletes the NEWEST entries, nothing comes after them, so the
-# shorter chain still verifies. This is called truncation.
-#
-# Fix: after every entry, record its ID and hash in instance/audit_anchor.json,
-# outside the database. verify_chain() checks that entry still exists with
-# that hash. An attacker who can only edit the database can't update this
-# file; one who can reach instance/ also has the HMAC key, so the anchor
-# needs no extra protection beyond that. Real systems go further and send
-# the latest hash to a separate server or a write-once log.
-#
-# NOTE: after `flask --app run reset-db`, also delete instance/audit_anchor.json,
-# or verification will (correctly!) report that the log was wiped.
-# ---------------------------------------------------------------------------
+
+# after `flask --app run reset-db`, also delete the instance of audit anchor
 
 ANCHOR_FILENAME = "audit_anchor.json"
 
@@ -172,18 +111,13 @@ def _anchor_path():
 def _write_anchor(last_id, last_hash):
     """Record the newest entry. Written atomically, so it's never half-written."""
     path = _anchor_path()
-    # Write to a uniquely named temp file, then swap it into place in one
-    # step (os.replace). A crash mid-write leaves the old anchor intact
-    # instead of a corrupted file.
+    # writes to a uniquely named temp file
     tmp = f"{path}.{secrets.token_hex(4)}.tmp"
     try:
         with open(tmp, "w") as f:
             json.dump({"last_id": last_id, "last_hash": last_hash}, f)
-        os.replace(tmp, path)
+        os.replace(tmp, path) #replaces temp file
     except OSError:
-        # The entry itself is already committed and chained, so a failed
-        # anchor update only weakens truncation detection; it doesn't lose
-        # the log entry. Don't crash the user's request over it.
         current_app.logger.warning("Could not update audit anchor file")
 
 
@@ -195,46 +129,34 @@ def _read_anchor():
         return None
 
 
-# ---------------------------------------------------------------------------
-# Verification
-# ---------------------------------------------------------------------------
+# verification 
+
 
 def _same(a, b):
-    """
-    Constant-time comparison. A normal == stops at the first differing
-    character, which in some systems leaks timing information an attacker
-    can use to guess a valid hash. It's good practice whenever comparing
-    MACs, even where that attack isn't realistic.
-    """
     return hmac.compare_digest(str(a).encode(), str(b).encode())
 
 
 def verify_chain():
     """
+    returns info about chain.
     Check the whole log. Returns a dict:
-        ok:        True if the chain is intact
-        count:     number of entries checked
-        broken_at: ID of the first bad entry (None if ok, or for truncation)
-        reason:    plain-English explanation for the admin page
     """
     key = current_app.config["AUDIT_HMAC_KEY"]
 
-    # Read the anchor BEFORE the rows. If an entry is logged in between,
-    # the rows we read will include it, so we never get a false alarm about
-    # an anchor pointing at a row we didn't read.
+
     anchor = _read_anchor()
     rows = get_db().execute("SELECT * FROM audit_log ORDER BY id").fetchall()
 
     expected_prev = GENESIS_HASH
     for row in rows:
-        # 1. Does this entry link to the one before it?
+        #does entry link to the one before it?
         if not _same(row["prev_hash"], expected_prev):
             return {
                 "ok": False, "count": len(rows), "broken_at": row["id"],
                 "reason": f"Entry #{row['id']} doesn't link to the entry before it. "
                           "An earlier entry was deleted, inserted or altered.",
             }
-        # 2. Do this entry's contents still match its hash?
+        #checks if entry still matches its hash
         recomputed = compute_hash(
             key, row["timestamp"], row["user_id"], row["action"],
             row["details"], row["prev_hash"],
@@ -247,7 +169,7 @@ def verify_chain():
             }
         expected_prev = row["entry_hash"]
 
-    # 3. Is the newest entry we know about still there?
+    #checks if newest entry is present
     if anchor is not None:
         match = next((r for r in rows if r["id"] == anchor["last_id"]), None)
         if match is None or not _same(match["entry_hash"], anchor["last_hash"]):

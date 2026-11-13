@@ -28,16 +28,11 @@ PAGE_LIMIT = 200
 @role_required("admin")
 def log_page():
     """
-    The audit log, newest first, with an optional chain check.
-
-    Admins only (least privilege): the log reveals WHO viewed WHICH
-    patient's records and when, which is sensitive in itself.
-    Verifying is a GET link because it only reads data.
+    admins only  
+    audit log
+    verifying is a GET link because it only reads data
     """
     entries = get_db().execute(
-        "SELECT audit_log.*, users.username FROM audit_log "
-        "LEFT JOIN users ON users.id = audit_log.user_id "
-        "ORDER BY audit_log.id DESC LIMIT ?",
         (PAGE_LIMIT,),
     ).fetchall()
     result = verify_chain() if request.args.get("verify") else None
@@ -48,20 +43,16 @@ def log_page():
 @role_required("doctor")
 def sign_record(record_id):
     """
-    The record's author re-enters their password to sign it.
-
-    Re-entering the password is what gives non-repudiation: it unlocks a
-    private key only this doctor can unlock, so a stolen session cookie
-    alone can't produce a signature.
+    signature needs doc to sign in with password
     """
     user = current_user()
     db = get_db()
     record = db.execute("SELECT * FROM records WHERE id = ?", (record_id,)).fetchone()
 
-    # Same rule as Filip's pages: 404 if missing OR not yours to see.
+    # 404 if missing or not allowed to see
     if record is None or not can_view(user, record):
         abort(404)
-    # A doctor a record was shared with can read it but not sign it.
+    # prevents unauthorised signing
     if record["author_id"] != user["id"]:
         abort(403)
 
@@ -81,8 +72,10 @@ def sign_record(record_id):
         "SELECT encrypted_private_key FROM signing_keys WHERE doctor_id = ?", (user["id"],)
     ).fetchone()
 
-    # Check the password with Glenn's Argon2 check first, so a typo can
-    # never create a key pair locked with the wrong password.
+
+    # verifys password
+    
+
     private_key = None
     if verify_password(password_hash, password):
         if key_row is None:
@@ -117,7 +110,7 @@ def sign_record(record_id):
         )
         db.commit()
     except sqlite3.IntegrityError:
-        # Signed at the same moment in another tab: keep the first one.
+        # just stops double signage by picking the first signed
         db.rollback()
         flash("This record is already signed.", "info")
         return redirect(back)

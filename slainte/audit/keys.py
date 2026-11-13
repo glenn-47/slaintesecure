@@ -29,6 +29,6 @@ def load_or_create_audit_key(instance_path):
     if len(key) != keyBytes:
         raise RuntimeError(
             f"{theKeyPath} should be {keyBytes} bytes but is {len(key)}. "
-            "Restore it from backup rather than deleting it."
+            "Restore it from back up rather than deleting it."
         )
     return key
