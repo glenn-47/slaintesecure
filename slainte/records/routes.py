@@ -1,4 +1,7 @@
-"""Web pages for records: list, create (doctors), view, and share (patients)."""
+"""This file makes the records route and handle based off what the doctor or patient
+is trying to do with the records, it can handle records creation, record encryption/decryption, record sharing, and record viewing.
+it can also handle the record list for patients and doctors, the doctors then can share the records with other patients and patients can share
+the records with other doctors as well."""
 
 import json
 import re
@@ -75,8 +78,7 @@ def _get_viewable_record_or_404(record_id):
     return record
 
 
-# ============================== Record list ==============================
-
+"""RECORD LISTING"""
 @bp.route("/")
 @role_required("patient", "doctor")
 def list_records():
@@ -137,8 +139,8 @@ def list_records():
     return render_template("records/list.html", records=records, patient=patient)
 
 
-# ============================= Create record =============================
 
+"""CREATE RECORDS"""
 @bp.route("/new", methods=["GET", "POST"])
 @role_required("doctor")
 def new_record():
@@ -205,8 +207,8 @@ def new_record():
     return redirect(url_for("records.view_record", record_id=record_id))
 
 
-# ============================== View record ==============================
 
+"""VIEW RECORDS"""
 @bp.route("/<int:record_id>")
 @role_required("patient", "doctor")
 def view_record(record_id):
@@ -238,8 +240,7 @@ def view_record(record_id):
         can_share_with=can_share_with,
     )
 
-
-# ================================ Sharing ================================
+""" SHARING RECORDS"""
 
 
 def _get_own_record_or_404(record_id):

@@ -1,6 +1,7 @@
 """
 Encrypted records: how mediacal records are protected from unnauthorized users
 
+
 ENVELOPE ENCRYPTION
 The records are encyrpted in a Envelope Encryption, this encrypts the records with
 randomly generated 256-bit AES keys which then the key gets encrypted again with the 
@@ -21,6 +22,7 @@ WHY A RANDOM 12-BYTE NONCE EACH TIME?
 The reason why we use a random 12-byte nonce is because it is firstly a standard
 for AES-GCM, and secondly, its a important security measure because it cannot use
 the same nonce twice with teh same key or else the encryption will break.
+
 
 WHY THE RECORD ID AS "ASSOCIATED DATA"?
 The reason why Record ID is used as associated data is because it is a unique
